@@ -18,7 +18,24 @@ def get_sheet():
     creds_dict = json.loads(creds_json)
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    return client.open("Database_DAF").get_worksheet(0)
+    sheet = client.open("Database_DAF").get_worksheet(0)
+    
+    # --- AUTO-HEADER OTOMATIS ---
+    # Robot mengecek apakah Baris 1 masih kosong. Jika kosong, otomatis diisi header horizontal.
+    header_standar = [
+        "Tanggal & Jam",
+        "In - Cawan Kosong", "In - Cawan Basah", "In - Cawan Kering", "In - Flask Kosong", "In - Flask + Oil",
+        "In - Berat Basah", "In - Berat Kering", "In - Oil", "In - Moisture (%)", "In - O/WM (%)", "In - O/DM (%)", "In - NOS (%)",
+        "Out - Cawan Kosong", "Out - Cawan Basah", "Out - Cawan Kering", "Out - Flask Kosong", "Out - Flask + Oil",
+        "Out - Berat Basah", "Out - Berat Kering", "Out - Oil", "Out - Moisture (%)", "Out - O/WM (%)", "Out - O/DM (%)", "Out - NOS (%)",
+        "Selisih - Oil", "Selisih - O/WM (%)", "Selisih - O/DM (%)", "Selisih - NOS (%)"
+    ]
+    
+    row_pertama = sheet.row_values(1)
+    if not row_pertama or row_pertama[0] == "":
+        sheet.insert_row(header_standar, 1, value_input_option='USER_ENTERED')
+        
+    return sheet
 
 sheet = get_sheet()
 
@@ -37,7 +54,6 @@ with tab1:
         default_jam = datetime.now().strftime("%H:%M")
         input_jam = st.text_input("⏰ Ketik Jam Analisa (Bebas)", value=default_jam)
 
-    # Fungsi aman untuk mengubah teks input menjadi angka desimal
     def parse_angka(teks):
         try:
             if not teks:
@@ -75,7 +91,6 @@ with tab1:
         out_flask_str = st.text_input("Bottom Flask Kosong (gr)", value="94.7254", key="out_4")
         out_flask_oil_str = st.text_input("Bottom + Oil (gr)", value="94.9274", key="out_5")
 
-    # Konversi input teks ke angka
     in_cawan = parse_angka(in_cawan_str)
     in_cawan_basah = parse_angka(in_cawan_basah_str)
     in_cawan_kering = parse_angka(in_cawan_kering_str)
@@ -88,11 +103,9 @@ with tab1:
     out_flask = parse_angka(out_flask_str)
     out_flask_oil = parse_angka(out_flask_oil_str)
 
-    # Proses Hitung
     in_bb, in_bk, in_oil, in_moist, in_owm, in_odm, in_nos = calculate_parameters(in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil)
     out_bb, out_bk, out_oil, out_moist, out_owm, out_odm, out_nos = calculate_parameters(out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil)
     
-    # Hitung Selisih
     selisih_oil = in_oil - out_oil
     selisih_owm = in_owm - out_owm
     selisih_odm = in_odm - out_odm
@@ -127,21 +140,17 @@ with tab1:
         try:
             waktu_gabungan = f"{input_tanggal} {input_jam}"
             
-            # Susunan data terkelompok rapi (Input Mentah + Hasil Inlet + Hasil Outlet + Selisih)
             data_baru = [
                 waktu_gabungan,
-                # Inlet Mentah
                 in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil,
                 round(in_bb,4), round(in_bk,4), round(in_oil,4), round(in_moist,2), round(in_owm,3), round(in_odm,2), round(in_nos,2),
-                # Outlet Mentah
                 out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil,
                 round(out_bb,4), round(out_bk,4), round(out_oil,4), round(out_moist,2), round(out_owm,3), round(out_odm,2), round(out_nos,2),
-                # Selisih
                 round(selisih_oil,4), round(selisih_owm,3), round(selisih_odm,2), round(selisih_nos,2)
             ]
             
             sheet.append_row(data_baru, value_input_option='USER_ENTERED')
-            st.success(f"✅ Data lengkap dengan rincian input & hasil berhasil disimpan untuk waktu: {waktu_gabungan}!")
+            st.success(f"✅ Data lengkap berhasil disimpan untuk waktu: {waktu_gabungan}!")
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
 
