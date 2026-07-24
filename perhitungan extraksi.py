@@ -37,47 +37,58 @@ def get_sheets():
 
 sheet, sheet_users = get_sheets()
 
-# --- SISTEM LOGIN, REGISTER, & LUPA PASSWORD ---
+# --- SISTEM LOGIN MULTI-ROLE (ADMIN & ANGGOTA) ---
 def auth_system():
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
 
     if not st.session_state["logged_in"]:
         st.title("🔐 Sistem Informasi Lab - DAF Extraction")
-        menu_auth = st.selectbox("Pilih Menu", ["🔑 Login", "📝 Daftar Akun Baru (Register)", "🔄 Lupa / Ubah Password"])
+        
+        # Pilihan Tipe Login: Admin atau Anggota
+        role_login = st.radio("Pilih Masuk Sebagai:", ["👤 Anggota (Staff Lab)", "🛠️ Administrator (Admin)"])
+        
+        menu_auth = st.selectbox("Pilih Menu Akses", ["🔑 Login", "📝 Daftar Akun Baru (Register)", "🔄 Lupa / Ubah Password"])
         
         # 1. MENU LOGIN
         if menu_auth == "🔑 Login":
-            st.subheader("Silakan Masuk ke Akun Anda")
+            st.subheader(f"Silakan Masuk sebagai {role_login}")
             u_input = st.text_input("Username", key="login_user")
             p_input = st.text_input("Password", type="password", key="login_pass")
             
             if st.button("Masuk", use_container_width=True):
                 try:
-                    users_data = sheet_users.get_all_records()
-                    df_users = pd.DataFrame(users_data)
-                    
-                    # Cek akun master admin bawaan atau dari database
-                    if u_input == "labdaf" and p_input == "sawit123":
-                        st.session_state["logged_in"] = True
-                        st.session_state["username"] = u_input
-                        st.rerun()
-                    elif not df_users.empty and "Username" in df_users.columns:
-                        match = df_users[(df_users["Username"] == u_input) & (df_users["Password"] == p_input)]
-                        if not match.empty:
+                    if role_login == "🛠️ Administrator (Admin)":
+                        # Akun Master Admin Bawaan (Bisa diubah sesuka hati)
+                        if u_input == "admin" and p_input == "admin123":
                             st.session_state["logged_in"] = True
                             st.session_state["username"] = u_input
+                            st.session_state["role"] = "Admin"
                             st.rerun()
                         else:
-                            st.error("❌ Username atau Password salah!")
+                            st.error("❌ Username atau Password Admin salah!")
                     else:
-                        st.error("❌ Akun tidak ditemukan. Silakan daftar terlebih dahulu.")
+                        # Login Anggota dari Database Google Sheets
+                        users_data = sheet_users.get_all_records()
+                        df_users = pd.DataFrame(users_data)
+                        
+                        if not df_users.empty and "Username" in df_users.columns:
+                            match = df_users[(df_users["Username"] == u_input) & (df_users["Password"] == p_input)]
+                            if not match.empty:
+                                st.session_state["logged_in"] = True
+                                st.session_state["username"] = u_input
+                                st.session_state["role"] = "Anggota"
+                                st.rerun()
+                            else:
+                                st.error("❌ Username atau Password Anggota salah!")
+                        else:
+                            st.error("❌ Belum ada akun terdaftar. Silakan daftar terlebih dahulu.")
                 except Exception as e:
                     st.error(f"Terjadi kesalahan saat login: {e}")
 
-        # 2. MENU DAFTAR AKUN BARU
+        # 2. MENU DAFTAR AKUN BARU (Khusus Anggota)
         elif menu_auth == "📝 Daftar Akun Baru (Register)":
-            st.subheader("Buat Akun Staf / Analis Baru")
+            st.subheader("Pendaftaran Akun Anggota / Analis Baru")
             new_user = st.text_input("Buat Username Baru", key="reg_user")
             new_pass = st.text_input("Buat Password Baru", type="password", key="reg_pass")
             confirm_pass = st.text_input("Konfirmasi Password Baru", type="password", key="reg_pass_conf")
@@ -96,15 +107,15 @@ def auth_system():
                             st.error("❌ Username sudah terdaftar! Gunakan username lain.")
                         else:
                             sheet_users.append_row([new_user, new_pass], value_input_option='USER_ENTERED')
-                            st.success("✅ Pendaftaran berhasil! Silakan pindah ke menu 'Login' untuk masuk.")
+                            st.success("✅ Pendaftaran berhasil! Silakan pindah ke menu 'Login' untuk masuk sebagai Anggota.")
                     except Exception as e:
                         st.error(f"Gagal mendaftar: {e}")
 
         # 3. MENU LUPA / UBAH PASSWORD
         elif menu_auth == "🔄 Lupa / Ubah Password":
-            st.subheader("Ubah Password Akun Anda")
+            st.subheader("Ubah Password Akun Anggota")
             reset_user = st.text_input("Masukkan Username Anda", key="reset_user")
-            old_pass = st.text_input("Masukkan Password Lama (atau Password Darurat)", type="password", key="reset_old")
+            old_pass = st.text_input("Masukkan Password Lama", type="password", key="reset_old")
             new_pass_val = st.text_input("Masukkan Password Baru", type="password", key="reset_new")
             
             if st.button("Perbarui Password", use_container_width=True):
@@ -112,11 +123,10 @@ def auth_system():
                     cell = sheet_users.find(reset_user)
                     if cell:
                         row_idx = cell.row
-                        # Verifikasi password lama (kolom B adalah password)
                         current_pass_in_sheet = sheet_users.cell(row_idx, 2).value
-                        if current_pass_in_sheet == old_pass or old_pass == "sawit123": # sawit123 sebagai master bypass jika lupa total
+                        if current_pass_in_sheet == old_pass:
                             sheet_users.update_cell(row_idx, 2, new_pass_val)
-                            st.success("✅ Password berhasil diubah! Silakan login dengan password baru Anda.")
+                            st.success("✅ Password berhasil diubah! Silakan login dengan password baru.")
                         else:
                             st.error("❌ Password lama salah!")
                     else:
@@ -131,10 +141,12 @@ def auth_system():
 if not auth_system():
     st.stop()
 
-# Tombol Logout di sidebar
+# Sidebar Info Pengguna & Logout
 with st.sidebar:
-    st.write(f"👤 Login sebagai: **{st.session_state.get('username', 'Admin')}**")
-    if st.button("🚪 Keluar (Logout)"):
+    st.write(f"👤 User: **{st.session_state.get('username')}**")
+    st.write(f"🛡️ Hak Akses: **{st.session_state.get('role')}**")
+    st.markdown("---")
+    if st.button("🚪 Keluar (Logout)", use_container_width=True):
         st.session_state["logged_in"] = False
         st.rerun()
 
@@ -152,7 +164,7 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
     subtitle_style = ParagraphStyle('SubTitleStyle', parent=styles['Normal'], fontSize=10, alignment=1, textColor=colors.HexColor("#555555"))
     
     story.append(Paragraph("LAPORAN ANALISA LABORATORIUM - DAF EXTRACTION", title_style))
-    story.append(Paragraph(f"Waktu Analisa: {waktu} | Oleh: {st.session_state.get('username', 'Staf')}", subtitle_style))
+    story.append(Paragraph(f"Waktu Analisa: {waktu} | Oleh: {st.session_state.get('username')} ({st.session_state.get('role')})", subtitle_style))
     story.append(Spacer(1, 15))
     
     data_table = [
@@ -305,7 +317,7 @@ with tab1:
                     round(selisih_oil,4), round(selisih_owm,3), round(selisih_odm,2), round(selisih_nos,2)
                 ]
                 sheet.append_row(data_baru, value_input_option='USER_ENTERED')
-                st.success(f"✅ Data lengkap berhasil disimpan ke Google Sheets!")
+                st.success(f"✅ Data lengkap berhasil disimpan ke Google Sheets oleh {st.session_state.get('username')}!")
             except Exception as e:
                 st.error(f"Gagal menyimpan: {e}")
 
