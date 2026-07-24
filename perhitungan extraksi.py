@@ -29,12 +29,11 @@ tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Tren 24 Jam"])
 with tab1:
     st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     
-    # Kotak Teks Bebas: Bisa diketik apa saja tanggal dan jamnya sesuai keinginan
     default_waktu = datetime.now().strftime("%Y-%m-%d %H:%M")
     input_tanggal_jam = st.text_input(
         "Tanggal & Jam Analisa (Bebas Ketik / Edit)", 
         value=default_waktu, 
-        placeholder="Contoh: 2026-06-06 08:30"
+        placeholder="Contoh: 2026-07-24 08:30"
     )
 
     def calculate_parameters(cawan, cawan_basah, cawan_kering, flask, flask_oil):
@@ -75,12 +74,12 @@ with tab1:
 
     if st.button("💾 SIMPAN KE DATABASE", use_container_width=True):
         try:
-            # Mengambil langsung teks tanggal & jam yang diketik bebas oleh user
             data_baru = [input_tanggal_jam, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
                          round(out_moist,3), round(out_owm,3), round(out_nos,3), round(selisih_owm,3)]
             
-            sheet.append_row(data_baru)
-            st.success(f"✅ Data berhasil disimpan dengan waktu: {input_tanggal_jam}!")
+            # Perintah append_row dengan value_input_option agar akurat turun ke bawah
+            sheet.append_row(data_baru, value_input_option='USER_ENTERED')
+            st.success(f"✅ Data berhasil disimpan untuk waktu: {input_tanggal_jam}!")
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
 
