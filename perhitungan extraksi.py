@@ -18,24 +18,7 @@ def get_sheet():
     creds_dict = json.loads(creds_json)
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    sheet = client.open("Database_DAF").get_worksheet(0)
-    
-    # --- AUTO-HEADER OTOMATIS ---
-    # Robot mengecek apakah Baris 1 masih kosong. Jika kosong, otomatis diisi header horizontal.
-    header_standar = [
-        "Tanggal & Jam",
-        "In - Cawan Kosong", "In - Cawan Basah", "In - Cawan Kering", "In - Flask Kosong", "In - Flask + Oil",
-        "In - Berat Basah", "In - Berat Kering", "In - Oil", "In - Moisture (%)", "In - O/WM (%)", "In - O/DM (%)", "In - NOS (%)",
-        "Out - Cawan Kosong", "Out - Cawan Basah", "Out - Cawan Kering", "Out - Flask Kosong", "Out - Flask + Oil",
-        "Out - Berat Basah", "Out - Berat Kering", "Out - Oil", "Out - Moisture (%)", "Out - O/WM (%)", "Out - O/DM (%)", "Out - NOS (%)",
-        "Selisih - Oil", "Selisih - O/WM (%)", "Selisih - O/DM (%)", "Selisih - NOS (%)"
-    ]
-    
-    row_pertama = sheet.row_values(1)
-    if not row_pertama or row_pertama[0] == "":
-        sheet.insert_row(header_standar, 1, value_input_option='USER_ENTERED')
-        
-    return sheet
+    return client.open("Database_DAF").get_worksheet(0)
 
 sheet = get_sheet()
 
@@ -47,6 +30,22 @@ with tab1:
     st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     st.info("💡 Tip: Anda bisa mengetik angka dengan bebas (bisa menggunakan titik . atau koma ,).")
     
+    # Tombol Darurat / Spesial untuk merapikan Header di Google Sheets secara instan
+    if st.button("🛠️ KLIK INI SEKALI UNTUK BUAT HEADER DI GOOGLE SHEETS", use_container_width=True):
+        try:
+            header_standar = [
+                "Tanggal & Jam",
+                "In - Cawan Kosong", "In - Cawan Basah", "In - Cawan Kering", "In - Flask Kosong", "In - Flask + Oil",
+                "In - Berat Basah", "In - Berat Kering", "In - Oil", "In - Moisture (%)", "In - O/WM (%)", "In - O/DM (%)", "In - NOS (%)",
+                "Out - Cawan Kosong", "Out - Cawan Basah", "Out - Cawan Kering", "Out - Flask Kosong", "Out - Flask + Oil",
+                "Out - Berat Basah", "Out - Berat Kering", "Out - Oil", "Out - Moisture (%)", "Out - O/WM (%)", "Out - O/DM (%)", "Out - NOS (%)",
+                "Selisih - Oil", "Selisih - O/WM (%)", "Selisih - O/DM (%)", "Selisih - NOS (%)"
+            ]
+            sheet.insert_row(header_standar, 1, value_input_option='USER_ENTERED')
+            st.success("✅ Header berhasil disisipkan ke Baris 1 Google Sheets!")
+        except Exception as e:
+            st.error(f"Gagal membuat header: {e}")
+
     col_tgl, col_jam = st.columns(2)
     with col_tgl:
         input_tanggal = st.date_input("📅 Pilih Tanggal Analisa", value=datetime.today())
