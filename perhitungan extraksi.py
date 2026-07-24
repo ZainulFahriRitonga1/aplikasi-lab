@@ -36,17 +36,14 @@ def get_sheets():
     client = gspread.authorize(creds)
     spreadsheet = client.open("Database_DAF")
     
-    # Sheet 1 untuk Lab DAF Extraction
     sheet_daf = spreadsheet.get_worksheet(0) 
     
-    # Ambil atau buat Sheet khusus 'Users' untuk database akun
     try:
         sheet_users = spreadsheet.worksheet("Users")
     except:
         sheet_users = spreadsheet.add_worksheet(title="Users", rows="100", cols="2")
         sheet_users.append_row(["Username", "Password"], value_input_option='USER_ENTERED')
         
-    # Ambil atau buat Sheet khusus 'Losses' untuk database Perhitungan Losses
     try:
         sheet_losses = spreadsheet.worksheet("Losses")
     except:
@@ -172,7 +169,7 @@ with st.sidebar:
         [
             "🛢️ Input DAF Extraction", 
             "📈 Rekap & Tren DAF",
-            "📊 Perhitungan Losses Stasiun"
+            "📊 Perhitungan Losses & TOL"
         ]
     )
     
@@ -401,20 +398,20 @@ elif pilih_halaman == "📈 Rekap & Tren DAF":
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memuat data: {e}")
 
-# 3. HALAMAN: PERHITUNGAN LOSSES STASIUN
-elif pilih_halaman == "📊 Perhitungan Losses Stasiun":
-    st.title("📊 Perhitungan Losses Laboratorium")
-    st.markdown("### 📥 Form Input Analisa Losses (Ampas Press, Empty Bunch, Decanter Solid, dll)")
+# 3. HALAMAN: PERHITUNGAN LOSSES & TOL (TOTAL OIL LOSSES)
+elif pilih_halaman == "📊 Perhitungan Losses & TOL":
+    st.title("📊 Perhitungan Losses & Total Oil Losses (TOL)")
+    st.markdown("### 📥 Form Input Analisa Losses per Stasiun Pabrik")
     
     col_l1, col_l2 = st.columns(2)
     with col_l1:
         st.date_input("📅 Tanggal Analisa", value=datetime.today(), key="loss_tgl")
-        st.selectbox("🏭 Pilih Stasiun / Sample", ["Ampas Press", "Tandan Kosong (Empty Bunch)", "Decanter Solid", "Kernel Sludge", "Biji / Nut"], key="loss_stasiun")
+        st.selectbox("🏭 Pilih Stasiun / Sample", ["Ampas Press (Pressed Fibre)", "Tandan Kosong (Empty Bunch)", "Decanter Solid", "Sludge Centrifuge", "Biji / Nut"], key="loss_stasiun")
         berat_basah_loss = st.text_input("Berat Sampel Basah (gr)", value="100.0", key="lb_1")
     with col_l2:
         st.text_input("⏰ Jam Analisa", value=datetime.now().strftime("%H:%M"), key="loss_jam")
         berat_kering_loss = st.text_input("Berat Sampel Kering / Residu (gr)", value="35.0", key="lb_2")
-        berat_minyak_loss = st.text_input("Berat Minyak / Ekstrak (gr)", value="5.5", key="lb_3")
+        berat_minyak_loss = st.text_input("Berat Minyak / Ekstrak (gr)", value="0.5", key="lb_3")
 
     def parse_num(t):
         try:
@@ -426,16 +423,15 @@ elif pilih_halaman == "📊 Perhitungan Losses Stasiun":
     b_kering = parse_num(berat_kering_loss)
     b_minyak = parse_num(berat_minyak_loss)
 
-    # Perhitungan persentase moisture & losses
     moisture_loss = ((b_basah - b_kering) / b_basah) * 100 if b_basah > 0 else 0
     persen_losses = (b_minyak / b_basah) * 100 if b_basah > 0 else 0
 
     st.markdown("---")
-    st.markdown("### 📈 Hasil Perhitungan Losses")
+    st.markdown("### 📈 Hasil Perhitungan Stasiun Ini")
     
     m1, m2 = st.columns(2)
     m1.metric("💧 Kadar Air (Moisture)", f"{moisture_loss:.2f} %")
-    m2.metric("📉 Persentase Losses", f"{persen_losses:.3f} %", delta_color="inverse")
+    m2.metric("📉 Losses Stasiun Ini", f"{persen_losses:.3f} %", delta_color="inverse")
 
     st.markdown("---")
     if st.button("💾 SIMPAN LOSSES KE DATABASE", use_container_width=True):
@@ -450,17 +446,36 @@ elif pilih_halaman == "📊 Perhitungan Losses Stasiun":
                 round(moisture_loss, 2), round(persen_losses, 3), user_pembuat
             ]
             sheet_losses.append_row(data_row, value_input_option='USER_ENTERED')
-            st.success(f"✅ Data Losses stasiun {stasiun_pilih} berhasil disimpan ke Google Sheets!")
+            st.success(f"✅ Data Losses stasiun '{stasiun_pilih}' berhasil disimpan!")
         except Exception as e:
             st.error(f"Gagal menyimpan data losses: {e}")
 
-    st.markdown("### 📋 Riwayat Data Losses Tersimpan")
+    st.markdown("---")
+    st.markdown("### 🧮 Rekapitulasi Total Oil Losses (TOL)")
+    st.info("💡 TOL (Total Oil Losses) dihitung dengan menjumlahkan persentase kehilangan minyak dari seluruh stasiun pengolahan.")
+
+    if st.button("🔄 Hitung & Refresh Total TOL", use_container_width=True):
+        st.rerun()
+
     try:
         records_loss = sheet_losses.get_all_records()
         if len(records_loss) > 0:
             df_loss = pd.DataFrame(records_loss)
+            
+            # Tampilkan tabel data
             st.dataframe(df_loss, use_container_width=True)
+            
+            # Hitung Total TOL (Penjumlahan kolom 'Losses (%)')
+            if "Losses (%)" in df_loss.columns:
+                total_tol = df_loss["Losses (%)"].astype(float).sum()
+                
+                st.markdown("---")
+                st.metric(
+                    label="🌟 **TOTAL OIL LOSSES (TOL) Keseluruhan**", 
+                    value=f"{total_tol:.3f} %",
+                    help="Akumulasi seluruh losses stasiun"
+                )
         else:
-            st.info("Belum ada data losses tersimpan.")
+            st.info("Belum ada data losses tersimpan di database untuk dikalkulasi menjadi TOL.")
     except Exception as e:
-        st.info(f"Memuat data riwayat losses...")
+        st.info(f"Memuat tabel rekapitulasi losses... ({e})")
