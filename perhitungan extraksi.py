@@ -20,7 +20,7 @@ def get_sheet():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
     # Membuka file berdasarkan nama dan memilih Sheet1
-    return client.open("Database_DAF").sheet1
+    return client.open("Database_DAF").get_worksheet(0)
 
 sheet = get_sheet()
 
