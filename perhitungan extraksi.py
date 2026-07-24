@@ -6,7 +6,6 @@ import pandas as pd
 from datetime import datetime
 import io
 
-# ReportLab untuk Export PDF
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -14,6 +13,43 @@ from reportlab.lib import colors
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
+
+# --- SISTEM LOGIN SEDERHANA ---
+def check_password():
+    """Mengembalikan True jika user berhasil login."""
+    
+    def password_entered():
+        # Masukkan Username & Password rahasia di sini
+        if st.session_state["username"] == "labdaf" and st.session_state["password"] == "sawit123":
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Hapus password dari memori demi keamanan
+            del st.session_state["username"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # Tampilkan kotak login jika belum login
+        st.title("🔐 Login Sistem Informasi Lab - DAF")
+        st.text_input("Username", key="username")
+        st.text_input("Password", type="password", key="password")
+        st.button("Login", on_click=password_entered)
+        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+            st.error("😕 Username atau Password salah. Silakan coba lagi.")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.title("🔐 Login Sistem Informasi Lab - DAF")
+        st.text_input("Username", key="username")
+        st.text_input("Password", type="password", key="password")
+        st.button("Login", on_click=password_entered)
+        st.error("😕 Username atau Password salah. Silakan coba lagi.")
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop()  # Hentikan eksekusi halaman jika belum login
+
+# ================= KODE UTAMA SETELAH LOGIN BERHASIL =================
 st.title("🛢️ Sistem Informasi Lab - DAF Extraction")
 
 # --- KONEKSI KE GOOGLE SHEETS ---
@@ -40,7 +76,7 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
         'TitleStyle',
         parent=styles['Heading1'],
         fontSize=15,
-        alignment=1, # Center
+        alignment=1,
         textColor=colors.HexColor("#1b4332")
     )
     subtitle_style = ParagraphStyle(
@@ -51,12 +87,10 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
         textColor=colors.HexColor("#555555")
     )
     
-    # Header Dokumen
     story.append(Paragraph("LAPORAN ANALISA LABORATORIUM - DAF EXTRACTION", title_style))
     story.append(Paragraph(f"Waktu Analisa: {waktu}", subtitle_style))
     story.append(Spacer(1, 15))
     
-    # Tabel Data
     data_table = [
         ["Parameter Pengujian", "INLET DAF", "OUTLET DAF", "SELISIH (In - Out)"],
         ["Cawan Kosong (gr)", f"{in_raw[0]:.4f}", f"{out_raw[0]:.4f}", "-"],
@@ -192,7 +226,6 @@ with tab1:
 
     st.markdown("---")
     
-    # Tombol Aksi (Simpan Database & Download PDF)
     col_act1, col_act2 = st.columns(2)
     
     with col_act1:
