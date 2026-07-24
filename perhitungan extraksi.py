@@ -49,8 +49,8 @@ def get_sheets():
     except:
         sheet_losses = spreadsheet.add_worksheet(title="Losses", rows="100", cols="10")
         sheet_losses.append_row([
-            "Waktu", "Stasiun", "Berat Sampel Basah", "Berat Sampel Kering", 
-            "Berat Minyak/Kernel", "Ratio Terolah (%)", "Kadar Air (%)", "Losses (%)", "Petugas"
+            "Waktu", "Stasiun", "Berat Basah", "Berat Kering", 
+            "Berat Minyak", "Ratio (%)", "Moisture (%)", "Losses (%)", "Petugas"
         ], value_input_option='USER_ENTERED')
         
     return sheet_daf, sheet_users, sheet_losses
@@ -204,7 +204,7 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
         ["Minyak / Oil (gr)", f"{in_res[2]:.4f}", f"{out_res[2]:.4f}", f"{selisih[0]:.4f} gr"],
         ["Moisture (%)", f"{in_res[3]:.2f} %", f"{out_res[3]:.2f} %", "-"],
         ["O/WM (%)", f"{in_res[4]:.3f} %", f"{out_res[4]:.3f} %", f"{selisih[1]:.3f} %"],
-        ["O/DM (%)", f"{in_res[5]:.2f} %", f"{out_res[5]:.2f} %", f"{selisih[2]:.2f} %"],
+        ["O/DM (%)", f"{in_res[5]:.2f} %", f"{out_res[5]:.2f} %", f"{selisih[2]:.3f} %"],
         ["NOS (%)", f"{in_res[6]:.2f} %", f"{out_res[6]:.2f} %", f"{selisih[3]:.2f} %"],
     ]
     
@@ -438,8 +438,6 @@ elif pilih_halaman == "📊 Perhitungan Losses & TOL":
     b_minyak = parse_num(berat_minyak_loss)
 
     moisture_loss = ((b_basah - b_kering) / b_basah) * 100 if b_basah > 0 else 0
-    
-    # Perhitungan losses murni dikali ratio persentase terolah
     raw_losses = (b_minyak / b_basah) * 100 if b_basah > 0 else 0
     persen_losses = raw_losses * (ratio_terolah / 100.0)
 
@@ -476,14 +474,20 @@ elif pilih_halaman == "📊 Perhitungan Losses & TOL":
         st.rerun()
 
     try:
-        records_loss = sheet_losses.get_all_records()
-        if len(records_loss) > 0:
-            df_loss = pd.DataFrame(records_loss)
+        # Perbaikan aman menggunakan get_all_values() agar bebas dari error duplikat header
+        rows = sheet_losses.get_all_values()
+        if len(rows) > 1:
+            header = rows[0]
+            data = rows[1:]
+            df_loss = pd.DataFrame(data, columns=header[:len(data[0])])
             
             st.dataframe(df_loss, use_container_width=True)
             
-            if "Losses (%)" in df_loss.columns:
-                total_tol = df_loss["Losses (%)"].astype(float).sum()
+            # Cari kolom losses secara dinamis berdasarkan kata kunci
+            matched_cols = [c for c in df_loss.columns if "Losses" in c]
+            if matched_cols:
+                col_target = matched_cols[0]
+                total_tol = pd.to_numeric(df_loss[col_target].astype(str).str.replace(',', '.'), errors='coerce').sum()
                 
                 st.markdown("---")
                 st.metric(
