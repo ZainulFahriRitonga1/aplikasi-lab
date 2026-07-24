@@ -60,7 +60,7 @@ def auth_system():
                 try:
                     if role_login == "🛠️ Administrator (Admin)":
                         # Akun Master Admin Bawaan (Bisa diubah sesuka hati)
-                        if u_input == "admin" and p_input == "admin123":
+                        if u_input == "zainul" and p_input == "sawit12345":
                             st.session_state["logged_in"] = True
                             st.session_state["username"] = u_input
                             st.session_state["role"] = "Admin"
