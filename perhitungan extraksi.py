@@ -14,12 +14,17 @@ from reportlab.lib import colors
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
 
-# CSS Aman (Hanya menyembunyikan menu atas dan footer bawaan)
+# CSS untuk menyembunyikan menu, footer, dan tombol Manage App
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 .stDeployButton {display:none;}
+div[data-testid="stStatusWidget"] {visibility: hidden;}
+/* Sembunyikan tombol Manage App di pojok kanan bawah */
+div:has(> a[href*="streamlit.cloud"]) {display: none !important;}
+button[kind="header"] {display: none !important;}
+.viewerBadge_container__1QSob {display: none !important;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
