@@ -20,7 +20,7 @@ def check_password():
     
     def password_entered():
         # Masukkan Username & Password rahasia di sini
-        if st.session_state["username"] == "labdaf" and st.session_state["password"] == "sawit123":
+        if st.session_state["username"] == "zainul" and st.session_state["password"] == "sawit12345":
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # Hapus password dari memori demi keamanan
             del st.session_state["username"]
