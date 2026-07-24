@@ -23,13 +23,19 @@ def get_sheet():
 sheet = get_sheet()
 
 # --- MEMBUAT TAB MENU ---
-tab1, tab2 = st.tabs(["📝 Input Harian (Shift)", "📈 Rekap & Tren 24 Jam"])
+tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Tren 24 Jam"])
 
 # ================= TAB 1: INPUT HARIAN =================
 with tab1:
-    st.markdown("### 📥 Input Data Laboratorium")
-    st.info("Setiap data yang disimpan akan otomatis turun ke baris bawahnya beserta catatan waktu (Tanggal & Jam).")
+    st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     
+    # Kotak Pilihan Tanggal dan Jam Manual
+    col_tgl, col_jam = st.columns(2)
+    with col_tgl:
+        input_tanggal = st.date_input("Pilih Tanggal Analisa", value=datetime.today())
+    with col_jam:
+        input_jam = st.time_input("Pilih Jam Analisa", value=datetime.now().time())
+
     def calculate_parameters(cawan, cawan_basah, cawan_kering, flask, flask_oil):
         berat_basah = cawan_basah - cawan
         berat_kering = cawan_kering - cawan
@@ -66,22 +72,22 @@ with tab1:
     m2.metric("💧 O/WM OUTLET", f"{out_owm:.3f} %")
     m3.metric("⚖️ SELISIH O/WM", f"{selisih_owm:.3f} %", delta=f"{selisih_owm:.3f}%")
 
-    if st.button("💾 SIMPAN KE DATABASE (BARIS BARU)", use_container_width=True):
+    if st.button("💾 SIMPAN KE DATABASE", use_container_width=True):
         try:
-            # Mengambil waktu lokal saat tombol diklik
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            data_baru = [now, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
+            # Menggabungkan Tanggal dan Jam yang dipilih manual oleh user
+            waktu_gabungan = f"{input_tanggal} {input_jam.strftime('%H:%M:%S')}"
+            
+            data_baru = [waktu_gabungan, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
                          round(out_moist,3), round(out_owm,3), round(out_nos,3), round(selisih_owm,3)]
             
-            # Perintah append_row otomatis memasukkan data ke baris kosong berikutnya di bawah
             sheet.append_row(data_baru)
-            st.success(f"✅ Data berhasil ditambahkan ke baris bawah pada {now}!")
+            st.success(f"✅ Data berhasil disimpan dengan tanggal & jam: {waktu_gabungan}!")
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
 
 # ================= TAB 2: REKAP BULANAN =================
 with tab2:
-    st.markdown("### 📈 Logbook & Riwayat Data 24 Jam")
+    st.markdown("### 📈 Logbook & Riwayat Data")
     
     if st.button("🔄 Segarkan Data"):
         st.rerun()
@@ -90,8 +96,7 @@ with tab2:
         records = sheet.get_all_records()
         if len(records) > 0:
             df = pd.DataFrame(records)
-            
-            st.markdown("#### Daftar Seluruh Log Pengujian (tersusun ke bawah)")
+            st.markdown("#### Daftar Seluruh Log Pengujian")
             st.dataframe(df, use_container_width=True)
             
             try:
