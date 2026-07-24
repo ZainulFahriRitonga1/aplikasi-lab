@@ -4,6 +4,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime
+import io
+
+# ReportLab untuk Export PDF
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
@@ -21,6 +28,70 @@ def get_sheet():
     return client.open("Database_DAF").get_worksheet(0)
 
 sheet = get_sheet()
+
+# --- FUNGSI PEMBUAT PDF LAPORAN LAB ---
+def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'TitleStyle',
+        parent=styles['Heading1'],
+        fontSize=15,
+        alignment=1, # Center
+        textColor=colors.HexColor("#1b4332")
+    )
+    subtitle_style = ParagraphStyle(
+        'SubTitleStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=1,
+        textColor=colors.HexColor("#555555")
+    )
+    
+    # Header Dokumen
+    story.append(Paragraph("LAPORAN ANALISA LABORATORIUM - DAF EXTRACTION", title_style))
+    story.append(Paragraph(f"Waktu Analisa: {waktu}", subtitle_style))
+    story.append(Spacer(1, 15))
+    
+    # Tabel Data
+    data_table = [
+        ["Parameter Pengujian", "INLET DAF", "OUTLET DAF", "SELISIH (In - Out)"],
+        ["Cawan Kosong (gr)", f"{in_raw[0]:.4f}", f"{out_raw[0]:.4f}", "-"],
+        ["Cawan + Sampel Basah (gr)", f"{in_raw[1]:.4f}", f"{out_raw[1]:.4f}", "-"],
+        ["Cawan + Sampel Kering (gr)", f"{in_raw[2]:.4f}", f"{out_raw[2]:.4f}", "-"],
+        ["Bottom Flask Kosong (gr)", f"{in_raw[3]:.4f}", f"{out_raw[3]:.4f}", "-"],
+        ["Bottom Flask + Oil (gr)", f"{in_raw[4]:.4f}", f"{out_raw[4]:.4f}", "-"],
+        ["Berat Sampel Basah (gr)", f"{in_res[0]:.4f}", f"{out_res[0]:.4f}", "-"],
+        ["Berat Sampel Kering (gr)", f"{in_res[1]:.4f}", f"{out_res[1]:.4f}", "-"],
+        ["Minyak / Oil (gr)", f"{in_res[2]:.4f}", f"{out_res[2]:.4f}", f"{selisih[0]:.4f} gr"],
+        ["Moisture (%)", f"{in_res[3]:.2f} %", f"{out_res[3]:.2f} %", "-"],
+        ["O/WM (%)", f"{in_res[4]:.3f} %", f"{out_res[4]:.3f} %", f"{selisih[1]:.3f} %"],
+        ["O/DM (%)", f"{in_res[5]:.2f} %", f"{out_res[5]:.2f} %", f"{selisih[2]:.2f} %"],
+        ["NOS (%)", f"{in_res[6]:.2f} %", f"{out_res[6]:.2f} %", f"{selisih[3]:.2f} %"],
+    ]
+    
+    t = Table(data_table, colWidths=[180, 110, 110, 120])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#2d6a4f")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor("#f8f9fa")),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f3f5")]),
+    ]))
+    
+    story.append(t)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 # --- MEMBUAT TAB MENU ---
 tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Tren 24 Jam"])
@@ -119,23 +190,45 @@ with tab1:
     s3.metric("⚖️ Selisih O/DM", f"{selisih_odm:.2f} %")
     s4.metric("⚖️ Selisih NOS", f"{selisih_nos:.2f} %")
 
-    if st.button("💾 SIMPAN KE DATABASE", use_container_width=True):
-        try:
-            waktu_gabungan = f"{input_tanggal} {input_jam}"
-            
-            data_baru = [
-                waktu_gabungan,
-                in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil,
-                round(in_bb,4), round(in_bk,4), round(in_oil,4), round(in_moist,2), round(in_owm,3), round(in_odm,2), round(in_nos,2),
-                out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil,
-                round(out_bb,4), round(out_bk,4), round(out_oil,4), round(out_moist,2), round(out_owm,3), round(out_odm,2), round(out_nos,2),
-                round(selisih_oil,4), round(selisih_owm,3), round(selisih_odm,2), round(selisih_nos,2)
-            ]
-            
-            sheet.append_row(data_baru, value_input_option='USER_ENTERED')
-            st.success(f"✅ Data lengkap berhasil disimpan untuk waktu: {waktu_gabungan}!")
-        except Exception as e:
-            st.error(f"Gagal menyimpan: {e}")
+    st.markdown("---")
+    
+    # Tombol Aksi (Simpan Database & Download PDF)
+    col_act1, col_act2 = st.columns(2)
+    
+    with col_act1:
+        if st.button("💾 SIMPAN KE DATABASE", use_container_width=True):
+            try:
+                waktu_gabungan = f"{input_tanggal} {input_jam}"
+                data_baru = [
+                    waktu_gabungan,
+                    in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil,
+                    round(in_bb,4), round(in_bk,4), round(in_oil,4), round(in_moist,2), round(in_owm,3), round(in_odm,2), round(in_nos,2),
+                    out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil,
+                    round(out_bb,4), round(out_bk,4), round(out_oil,4), round(out_moist,2), round(out_owm,3), round(out_odm,2), round(out_nos,2),
+                    round(selisih_oil,4), round(selisih_owm,3), round(selisih_odm,2), round(selisih_nos,2)
+                ]
+                sheet.append_row(data_baru, value_input_option='USER_ENTERED')
+                st.success(f"✅ Data lengkap berhasil disimpan ke Google Sheets!")
+            except Exception as e:
+                st.error(f"Gagal menyimpan: {e}")
+
+    with col_act2:
+        waktu_gabungan = f"{input_tanggal} {input_jam}"
+        in_raw_list = [in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil]
+        in_res_list = [in_bb, in_bk, in_oil, in_moist, in_owm, in_odm, in_nos]
+        out_raw_list = [out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil]
+        out_res_list = [out_bb, out_bk, out_oil, out_moist, out_owm, out_odm, out_nos]
+        selisih_list = [selisih_oil, selisih_owm, selisih_odm, selisih_nos]
+        
+        pdf_bytes = create_pdf_report(waktu_gabungan, in_raw_list, in_res_list, out_raw_list, out_res_list, selisih_list)
+        
+        st.download_button(
+            label="📄 DOWNLOAD LAPORAN PDF",
+            data=pdf_bytes,
+            file_name=f"Laporan_Lab_DAF_{input_tanggal}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
 
 # ================= TAB 2: REKAP BULANAN =================
 with tab2:
@@ -158,13 +251,12 @@ with tab2:
                 kolom_waktu = df.columns[0] 
                 df_chart = df.set_index(kolom_waktu)
                 
-                # Pencari kolom yang disesuaikan dengan header baru ("In - O/WM (%)" dan "Out - O/WM (%)")
                 kolom_inlet = [c for c in df.columns if "In -" in c and "O/WM" in c][0]
                 kolom_outlet = [c for c in df.columns if "Out -" in c and "O/WM" in c][0]
                 
                 st.line_chart(df_chart[[kolom_inlet, kolom_outlet]])
             except Exception as e_grafik:
-                st.info(f"Grafik sedang menyesuaikan kolom data: {e_grafik}")
+                st.info(f"Grafik menyesuaikan data: {e_grafik}")
         else:
             st.info("Belum ada data tersimpan di Google Sheets.")
             
