@@ -14,25 +14,22 @@ scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapi
 
 @st.cache_resource
 def get_sheet():
-    # Mengambil kunci rahasia dari Streamlit Secrets
     creds_json = st.secrets["google_credentials"]
     creds_dict = json.loads(creds_json)
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    # Membuka file berdasarkan nama dan memilih Sheet1
+    # Menggunakan get_worksheet(0) agar otomatis membaca tab urutan pertama
     return client.open("Database_DAF").get_worksheet(0)
 
 sheet = get_sheet()
 
 # --- MEMBUAT TAB MENU ---
-# Aplikasi sekarang memiliki 2 Halaman/Tab
 tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Grafik Bulanan"])
 
 # ================= TAB 1: INPUT HARIAN =================
 with tab1:
     st.markdown("### Kalkulator & Input Data Baru")
     
-    # Fungsi Kalkulasi
     def calculate_parameters(cawan, cawan_basah, cawan_kering, flask, flask_oil):
         berat_basah = cawan_basah - cawan
         berat_kering = cawan_kering - cawan
@@ -42,7 +39,6 @@ with tab1:
         nos = 100 - moisture - owm
         return moisture, owm, nos
 
-    # Tampilan Input
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("📥 INLET (DAF)")
@@ -60,28 +56,21 @@ with tab1:
         out_flask = st.number_input("Bottom Flask Kosong (gr)", value=94.7254, format="%.4f", key="out_4")
         out_flask_oil = st.number_input("Bottom + Oil (gr)", value=94.9274, format="%.4f", key="out_5")
 
-    # Perhitungan Otomatis
     in_moist, in_owm, in_nos = calculate_parameters(in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil)
     out_moist, out_owm, out_nos = calculate_parameters(out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil)
     selisih_owm = in_owm - out_owm
 
     st.markdown("---")
-    # Kotak Hasil
     m1, m2, m3 = st.columns(3)
     m1.metric("💧 O/WM INLET", f"{in_owm:.3f} %")
     m2.metric("💧 O/WM OUTLET", f"{out_owm:.3f} %")
     m3.metric("⚖️ SELISIH O/WM", f"{selisih_owm:.3f} %", delta=f"{selisih_owm:.3f}%")
 
-    # TOMBOL SIMPAN KE GOOGLE SHEETS
     if st.button("💾 SIMPAN DATA HARI INI KE DATABASE", use_container_width=True):
         try:
-            # Ambil Waktu Saat Ini
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            # Susun data agar berurutan sesuai kolom Google Sheets Bapak
             data_baru = [now, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
                          round(out_moist,3), round(out_owm,3), round(out_nos,3), round(selisih_owm,3)]
-            
-            # Kirim data ke Sheets
             sheet.append_row(data_baru)
             st.success(f"✅ Data berhasil disimpan ke Google Sheets pada {now}!")
         except Exception as e:
@@ -90,26 +79,38 @@ with tab1:
 # ================= TAB 2: REKAP BULANAN =================
 with tab2:
     st.markdown("### 📈 Database & Tren Ekstraksi")
-    st.info("💡 Data di bawah ini ditarik secara otomatis dan real-time dari Google Sheets.")
     
-    if st.button("🔄 Segarkan Data (Refresh)"):
-        st.rerun()
+    col_btn1, col_btn2 = st.columns([1, 4])
+    with col_btn1:
+        if st.button("🔄 Segarkan Data"):
+            st.rerun()
         
     try:
-        # Menarik data dari Google Sheets
+        # Menarik data
         records = sheet.get_all_records()
         if len(records) > 0:
             df = pd.DataFrame(records)
             
-            # 1. Tampilkan Tabel
+            # 1. Menampilkan Tabel (Pasti Muncul)
+            st.markdown("#### 1. Tabel Data Historis")
             st.dataframe(df, use_container_width=True)
             
-            # 2. Tampilkan Grafik
-            st.markdown("#### Grafik Tren O/WM (Inlet vs Outlet)")
-            # Menggunakan Tanggal sebagai dasar grafik
-            df_chart = df.set_index("Tanggal & Jam")
-            st.line_chart(df_chart[["Inlet - O/WM (%)", "Outlet - O/WM (%)"]])
+            # 2. Menampilkan Grafik (Dengan Sistem Pencari Nama Kolom Otomatis)
+            try:
+                st.markdown("#### 2. Grafik Tren O/WM (Inlet vs Outlet)")
+                kolom_waktu = df.columns[0] 
+                df_chart = df.set_index(kolom_waktu)
+                
+                # Mesin otomatis mencari kolom yang mengandung kata "Inlet" dan "O/WM"
+                kolom_inlet = [c for c in df.columns if "Inlet" in c and "O/WM" in c][0]
+                kolom_outlet = [c for c in df.columns if "Outlet" in c and "O/WM" in c][0]
+                
+                st.line_chart(df_chart[[kolom_inlet, kolom_outlet]])
+            except Exception as e_grafik:
+                st.warning("Grafik belum bisa dimunculkan. Mesin tidak menemukan kolom dengan kata 'Inlet' dan 'O/WM' di baris pertama Sheets.")
         else:
-            st.warning("Belum ada data di Google Sheets. Silakan input dan simpan data pada tab 'Input Harian'.")
+            st.info("Belum ada data di Google Sheets. Silakan input dari Tab 1.")
+            
     except Exception as e:
-        st.error("Data tidak dapat dimuat. Pastikan Bapak sudah mengetikkan Judul Kolom di baris pertama Google Sheets.")
+        # Jika masih error, ini akan memunculkan tulisan aslinya agar kita tahu masalah pastinya
+        st.error(f"Sistem gagal membaca Google Sheets. Detail teknis: {e}")
