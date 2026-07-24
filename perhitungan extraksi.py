@@ -29,30 +29,32 @@ tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Tren 24 Jam"])
 with tab1:
     st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     
-    # Tanggal pakai Kalender, Jam pakai Ketik Bebas 100%
+    # Pilihan Tanggal (Kalender) & Jam (Ketik Bebas)
     col_tgl, col_jam = st.columns(2)
     with col_tgl:
         input_tanggal = st.date_input("📅 Pilih Tanggal Analisa", value=datetime.today())
     with col_jam:
         default_jam = datetime.now().strftime("%H:%M")
-        input_jam = st.text_input("⏰ Ketik Jam Analisa (Bebas)", value=default_jam, placeholder="Contoh: 08:14 atau 23:55")
+        input_jam = st.text_input("⏰ Ketik Jam Analisa (Bebas)", value=default_jam, placeholder="Contoh: 08:14")
 
     def calculate_parameters(cawan, cawan_basah, cawan_kering, flask, flask_oil):
         berat_basah = cawan_basah - cawan
         berat_kering = cawan_kering - cawan
         moisture = ((berat_basah - berat_kering) / berat_basah) * 100 if berat_basah > 0 else 0
+        
         oil = flask_oil - flask
         owm = (oil / berat_basah) * 100 if berat_basah > 0 else 0
+        odm = (oil / berat_kering) * 100 if berat_kering > 0 else 0
         nos = 100 - moisture - owm
-        return moisture, owm, nos
+        return moisture, owm, odm, nos
 
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("📥 INLET (DAF)")
-        in_cawan = st.number_input("Cawan Kosong (gr)", value=62.3370, format="%.4f", key="in_1")
-        in_cawan_basah = st.number_input("Cawan + Sampel Basah (gr)", value=88.0031, format="%.4f", key="in_2")
-        in_cawan_kering = st.number_input("Cawan + Sampel Kering (gr)", value=63.9199, format="%.4f", key="in_3")
-        in_flask = st.number_input("Bottom Flask Kosong (gr)", value=105.7184, format="%.4f", key="in_4")
+        in_cawan = st.number_input("Cawan Kosong (gr)", value=88.1707, format="%.4f", key="in_1")
+        in_cawan_basah = st.number_input("Cawan + Sampel Basah (gr)", value=113.5584, format="%.4f", key="in_2")
+        in_cawan_kering = st.number_input("Cawan + Sampel Kering (gr)", value=89.9324, format="%.4f", key="in_3")
+        in_flask = st.number_input("Bottom Flask Kosong (gr)", value=80.8070, format="%.4f", key="in_4")
         in_flask_oil = st.number_input("Bottom + Oil (gr)", value=105.9338, format="%.4f", key="in_5")
 
     with col2:
@@ -63,32 +65,54 @@ with tab1:
         out_flask = st.number_input("Bottom Flask Kosong (gr)", value=94.7254, format="%.4f", key="out_4")
         out_flask_oil = st.number_input("Bottom + Oil (gr)", value=94.9274, format="%.4f", key="out_5")
 
-    in_moist, in_owm, in_nos = calculate_parameters(in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil)
-    out_moist, out_owm, out_nos = calculate_parameters(out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil)
+    # Proses Hitung
+    in_moist, in_owm, in_odm, in_nos = calculate_parameters(in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil)
+    out_moist, out_owm, out_odm, out_nos = calculate_parameters(out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil)
     selisih_owm = in_owm - out_owm
 
     st.markdown("---")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("💧 O/WM INLET", f"{in_owm:.3f} %")
-    m2.metric("💧 O/WM OUTLET", f"{out_owm:.3f} %")
-    m3.metric("⚖️ SELISIH O/WM", f"{selisih_owm:.3f} %", delta=f"{selisih_owm:.3f}%")
+    st.markdown("### 📊 Hasil Perhitungan Laboratorium")
+    
+    # Baris 1: Inlet Results
+    st.text("INLET DAF:")
+    mi1, mi2, mi3, mi4 = st.columns(4)
+    mi1.metric("💧 Moisture", f"{in_moist:.2f} %")
+    mi2.metric("🛢️ O/WM", f"{in_owm:.3f} %")
+    mi3.metric("🛢️ O/DM", f"{in_odm:.2f} %")
+    mi4.metric("⚖️ NOS", f"{in_nos:.2f} %")
+
+    # Baris 2: Outlet Results
+    st.text("OUTLET DAF:")
+    mo1, mo2, mo3, mo4 = st.columns(4)
+    mo1.metric("💧 Moisture", f"{out_moist:.2f} %")
+    mo2.metric("🛢️ O/WM", f"{out_owm:.3f} %")
+    mo3.metric("🛢️ O/DM", f"{out_odm:.2f} %")
+    mo4.metric("⚖️ NOS", f"{out_nos:.2f} %")
+
+    # Baris 3: Selisih
+    st.markdown("---")
+    st.metric("⚖️ SELISIH O/WM (Inlet - Outlet)", f"{selisih_owm:.3f} %", delta=f"{selisih_owm:.3f}%")
 
     if st.button("💾 SIMPAN KE DATABASE", use_container_width=True):
         try:
-            # Menggabungkan tanggal dari kalender dan jam yang diketik bebas
             waktu_gabungan = f"{input_tanggal} {input_jam}"
             
-            data_baru = [waktu_gabungan, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
-                         round(out_moist,3), round(out_owm,3), round(out_nos,3), round(selisih_owm,3)]
+            # Susunan data yang dikirim ke Google Sheets
+            data_baru = [
+                waktu_gabungan, 
+                round(in_moist,2), round(in_owm,3), round(in_odm,2), round(in_nos,2), 
+                round(out_moist,2), round(out_owm,3), round(out_odm,2), round(out_nos,2), 
+                round(selisih_owm,3)
+            ]
             
             sheet.append_row(data_baru, value_input_option='USER_ENTERED')
-            st.success(f"✅ Data berhasil disimpan untuk waktu: {waktu_gabungan}!")
+            st.success(f"✅ Data lengkap (O/WM, O/DM, NOS) berhasil disimpan untuk waktu: {waktu_gabungan}!")
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
 
 # ================= TAB 2: REKAP BULANAN =================
 with tab2:
-    st.markdown("### 📈 Logbook & Riwayat Data")
+    st.markdown("### 📈 Logbook & Riwayat Data Lab")
     
     if st.button("🔄 Segarkan Data"):
         st.rerun()
