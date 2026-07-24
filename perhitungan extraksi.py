@@ -37,12 +37,11 @@ with tab1:
         default_jam = datetime.now().strftime("%H:%M")
         input_jam = st.text_input("⏰ Ketik Jam Analisa (Bebas)", value=default_jam)
 
-    # Fungsi aman untuk mengubah teks (yang bisa pakai koma/titik) menjadi angka desimal Python
+    # Fungsi aman untuk mengubah teks input menjadi angka desimal
     def parse_angka(teks):
         try:
             if not teks:
                 return 0.0
-            # Mengganti koma menjadi titik agar terbaca sistem matematika komputer
             teks_bersih = str(teks).strip().replace(',', '.')
             return float(teks_bersih)
         except:
@@ -57,7 +56,7 @@ with tab1:
         owm = (oil / berat_basah) * 100 if berat_basah > 0 else 0
         odm = (oil / berat_kering) * 100 if berat_kering > 0 else 0
         nos = 100 - moisture - owm
-        return oil, moisture, owm, odm, nos
+        return berat_basah, berat_kering, oil, moisture, owm, odm, nos
 
     col1, col2 = st.columns(2)
     with col1:
@@ -76,7 +75,7 @@ with tab1:
         out_flask_str = st.text_input("Bottom Flask Kosong (gr)", value="94.7254", key="out_4")
         out_flask_oil_str = st.text_input("Bottom + Oil (gr)", value="94.9274", key="out_5")
 
-    # Konversi teks input menjadi angka
+    # Konversi input teks ke angka
     in_cawan = parse_angka(in_cawan_str)
     in_cawan_basah = parse_angka(in_cawan_basah_str)
     in_cawan_kering = parse_angka(in_cawan_kering_str)
@@ -90,10 +89,10 @@ with tab1:
     out_flask_oil = parse_angka(out_flask_oil_str)
 
     # Proses Hitung
-    in_oil, in_moist, in_owm, in_odm, in_nos = calculate_parameters(in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil)
-    out_oil, out_moist, out_owm, out_odm, out_nos = calculate_parameters(out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil)
+    in_bb, in_bk, in_oil, in_moist, in_owm, in_odm, in_nos = calculate_parameters(in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil)
+    out_bb, out_bk, out_oil, out_moist, out_owm, out_odm, out_nos = calculate_parameters(out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil)
     
-    # Hitung Selisih (Inlet - Outlet)
+    # Hitung Selisih
     selisih_oil = in_oil - out_oil
     selisih_owm = in_owm - out_owm
     selisih_odm = in_odm - out_odm
@@ -128,15 +127,21 @@ with tab1:
         try:
             waktu_gabungan = f"{input_tanggal} {input_jam}"
             
+            # Susunan data terkelompok rapi (Input Mentah + Hasil Inlet + Hasil Outlet + Selisih)
             data_baru = [
-                waktu_gabungan, 
-                round(in_moist,2), round(in_owm,3), round(in_odm,2), round(in_nos,2), 
-                round(out_moist,2), round(out_owm,3), round(out_odm,2), round(out_nos,2), 
+                waktu_gabungan,
+                # Inlet Mentah
+                in_cawan, in_cawan_basah, in_cawan_kering, in_flask, in_flask_oil,
+                round(in_bb,4), round(in_bk,4), round(in_oil,4), round(in_moist,2), round(in_owm,3), round(in_odm,2), round(in_nos,2),
+                # Outlet Mentah
+                out_cawan, out_cawan_basah, out_cawan_kering, out_flask, out_flask_oil,
+                round(out_bb,4), round(out_bk,4), round(out_oil,4), round(out_moist,2), round(out_owm,3), round(out_odm,2), round(out_nos,2),
+                # Selisih
                 round(selisih_oil,4), round(selisih_owm,3), round(selisih_odm,2), round(selisih_nos,2)
             ]
             
             sheet.append_row(data_baru, value_input_option='USER_ENTERED')
-            st.success(f"✅ Data lengkap beserta selisih berhasil disimpan untuk waktu: {waktu_gabungan}!")
+            st.success(f"✅ Data lengkap dengan rincian input & hasil berhasil disimpan untuk waktu: {waktu_gabungan}!")
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
 
