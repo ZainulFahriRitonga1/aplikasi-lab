@@ -30,23 +30,6 @@ with tab1:
     st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     st.info("💡 Tip: Anda bisa mengetik angka dengan bebas (bisa menggunakan titik . atau koma ,).")
     
-    # Tombol Perbaikan Header Paksa (100% Masuk ke Baris 1)
-    if st.button("🛠️ KLIK INI SEKALI UNTUK BUAT HEADER DI GOOGLE SHEETS", use_container_width=True):
-        try:
-            header_standar = [
-                "Tanggal & Jam",
-                "In - Cawan Kosong", "In - Cawan Basah", "In - Cawan Kering", "In - Flask Kosong", "In - Flask + Oil",
-                "In - Berat Basah", "In - Berat Kering", "In - Oil", "In - Moisture (%)", "In - O/WM (%)", "In - O/DM (%)", "In - NOS (%)",
-                "Out - Cawan Kosong", "Out - Cawan Basah", "Out - Cawan Kering", "Out - Flask Kosong", "Out - Flask + Oil",
-                "Out - Berat Basah", "Out - Berat Kering", "Out - Oil", "Out - Moisture (%)", "Out - O/WM (%)", "Out - O/DM (%)", "Out - NOS (%)",
-                "Selisih - Oil", "Selisih - O/WM (%)", "Selisih - O/DM (%)", "Selisih - NOS (%)"
-            ]
-            # Memperbarui baris 1 secara langsung dari kolom A1 sampai AC1
-            sheet.update('A1:AC1', [header_standar])
-            st.success("✅ Header berhasil dipasang di Baris 1 Google Sheets!")
-        except Exception as e:
-            st.error(f"Gagal membuat header: {e}")
-
     col_tgl, col_jam = st.columns(2)
     with col_tgl:
         input_tanggal = st.date_input("📅 Pilih Tanggal Analisa", value=datetime.today())
