@@ -29,12 +29,13 @@ tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Tren 24 Jam"])
 with tab1:
     st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     
-    # Tampilan Kalender Visual dan Jam
+    # Tanggal pakai Kalender, Jam pakai Ketik Bebas 100%
     col_tgl, col_jam = st.columns(2)
     with col_tgl:
         input_tanggal = st.date_input("📅 Pilih Tanggal Analisa", value=datetime.today())
     with col_jam:
-        input_jam = st.time_input("⏰ Pilih Jam Analisa", value=datetime.now().time())
+        default_jam = datetime.now().strftime("%H:%M")
+        input_jam = st.text_input("⏰ Ketik Jam Analisa (Bebas)", value=default_jam, placeholder="Contoh: 08:14 atau 23:55")
 
     def calculate_parameters(cawan, cawan_basah, cawan_kering, flask, flask_oil):
         berat_basah = cawan_basah - cawan
@@ -74,8 +75,8 @@ with tab1:
 
     if st.button("💾 SIMPAN KE DATABASE", use_container_width=True):
         try:
-            # Menggabungkan tanggal dari kalender visual dan jam yang dipilih
-            waktu_gabungan = f"{input_tanggal} {input_jam.strftime('%H:%M:%S')}"
+            # Menggabungkan tanggal dari kalender dan jam yang diketik bebas
+            waktu_gabungan = f"{input_tanggal} {input_jam}"
             
             data_baru = [waktu_gabungan, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
                          round(out_moist,3), round(out_owm,3), round(out_nos,3), round(selisih_owm,3)]
