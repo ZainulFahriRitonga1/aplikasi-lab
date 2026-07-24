@@ -18,17 +18,17 @@ def get_sheet():
     creds_dict = json.loads(creds_json)
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    # Menggunakan get_worksheet(0) agar otomatis membaca tab urutan pertama
     return client.open("Database_DAF").get_worksheet(0)
 
 sheet = get_sheet()
 
 # --- MEMBUAT TAB MENU ---
-tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Grafik Bulanan"])
+tab1, tab2 = st.tabs(["📝 Input Harian (Shift)", "📈 Rekap & Tren 24 Jam"])
 
 # ================= TAB 1: INPUT HARIAN =================
 with tab1:
-    st.markdown("### Kalkulator & Input Data Baru")
+    st.markdown("### 📥 Input Data Laboratorium")
+    st.info("Setiap data yang disimpan akan otomatis turun ke baris bawahnya beserta catatan waktu (Tanggal & Jam).")
     
     def calculate_parameters(cawan, cawan_basah, cawan_kering, flask, flask_oil):
         berat_basah = cawan_basah - cawan
@@ -66,51 +66,47 @@ with tab1:
     m2.metric("💧 O/WM OUTLET", f"{out_owm:.3f} %")
     m3.metric("⚖️ SELISIH O/WM", f"{selisih_owm:.3f} %", delta=f"{selisih_owm:.3f}%")
 
-    if st.button("💾 SIMPAN DATA HARI INI KE DATABASE", use_container_width=True):
+    if st.button("💾 SIMPAN KE DATABASE (BARIS BARU)", use_container_width=True):
         try:
+            # Mengambil waktu lokal saat tombol diklik
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             data_baru = [now, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
                          round(out_moist,3), round(out_owm,3), round(out_nos,3), round(selisih_owm,3)]
+            
+            # Perintah append_row otomatis memasukkan data ke baris kosong berikutnya di bawah
             sheet.append_row(data_baru)
-            st.success(f"✅ Data berhasil disimpan ke Google Sheets pada {now}!")
+            st.success(f"✅ Data berhasil ditambahkan ke baris bawah pada {now}!")
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
 
 # ================= TAB 2: REKAP BULANAN =================
 with tab2:
-    st.markdown("### 📈 Database & Tren Ekstraksi")
+    st.markdown("### 📈 Logbook & Riwayat Data 24 Jam")
     
-    col_btn1, col_btn2 = st.columns([1, 4])
-    with col_btn1:
-        if st.button("🔄 Segarkan Data"):
-            st.rerun()
+    if st.button("🔄 Segarkan Data"):
+        st.rerun()
         
     try:
-        # Menarik data
         records = sheet.get_all_records()
         if len(records) > 0:
             df = pd.DataFrame(records)
             
-            # 1. Menampilkan Tabel (Pasti Muncul)
-            st.markdown("#### 1. Tabel Data Historis")
+            st.markdown("#### Daftar Seluruh Log Pengujian (tersusun ke bawah)")
             st.dataframe(df, use_container_width=True)
             
-            # 2. Menampilkan Grafik (Dengan Sistem Pencari Nama Kolom Otomatis)
             try:
-                st.markdown("#### 2. Grafik Tren O/WM (Inlet vs Outlet)")
+                st.markdown("#### Grafik Tren Pergerakan O/WM")
                 kolom_waktu = df.columns[0] 
                 df_chart = df.set_index(kolom_waktu)
                 
-                # Mesin otomatis mencari kolom yang mengandung kata "Inlet" dan "O/WM"
                 kolom_inlet = [c for c in df.columns if "Inlet" in c and "O/WM" in c][0]
                 kolom_outlet = [c for c in df.columns if "Outlet" in c and "O/WM" in c][0]
                 
                 st.line_chart(df_chart[[kolom_inlet, kolom_outlet]])
-            except Exception as e_grafik:
-                st.warning("Grafik belum bisa dimunculkan. Mesin tidak menemukan kolom dengan kata 'Inlet' dan 'O/WM' di baris pertama Sheets.")
+            except Exception:
+                st.info("Grafik akan terbentuk otomatis setelah data historis bertambah.")
         else:
-            st.info("Belum ada data di Google Sheets. Silakan input dari Tab 1.")
+            st.info("Belum ada data tersimpan di Google Sheets.")
             
     except Exception as e:
-        # Jika masih error, ini akan memunculkan tulisan aslinya agar kita tahu masalah pastinya
-        st.error(f"Sistem gagal membaca Google Sheets. Detail teknis: {e}")
+        st.error(f"Terjadi kesalahan saat memuat data: {e}")
