@@ -163,7 +163,7 @@ with st.sidebar:
     st.write(f"🛡️ Hak Akses: **{st.session_state.get('role')}**")
     st.markdown("---")
     
-    st.subheader("📌 Navigasi Menu")
+    st.subheader("📌 Dashboard")
     pilih_halaman = st.radio(
         "Pilih Halaman:", 
         [
