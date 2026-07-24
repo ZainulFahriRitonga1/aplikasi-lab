@@ -29,12 +29,12 @@ tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Tren 24 Jam"])
 with tab1:
     st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     
-    default_waktu = datetime.now().strftime("%Y-%m-%d %H:%M")
-    input_tanggal_jam = st.text_input(
-        "Tanggal & Jam Analisa (Bebas Ketik / Edit)", 
-        value=default_waktu, 
-        placeholder="Contoh: 2026-07-24 08:30"
-    )
+    # Tampilan Kalender Visual dan Jam
+    col_tgl, col_jam = st.columns(2)
+    with col_tgl:
+        input_tanggal = st.date_input("📅 Pilih Tanggal Analisa", value=datetime.today())
+    with col_jam:
+        input_jam = st.time_input("⏰ Pilih Jam Analisa", value=datetime.now().time())
 
     def calculate_parameters(cawan, cawan_basah, cawan_kering, flask, flask_oil):
         berat_basah = cawan_basah - cawan
@@ -74,12 +74,14 @@ with tab1:
 
     if st.button("💾 SIMPAN KE DATABASE", use_container_width=True):
         try:
-            data_baru = [input_tanggal_jam, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
+            # Menggabungkan tanggal dari kalender visual dan jam yang dipilih
+            waktu_gabungan = f"{input_tanggal} {input_jam.strftime('%H:%M:%S')}"
+            
+            data_baru = [waktu_gabungan, round(in_moist,3), round(in_owm,3), round(in_nos,3), 
                          round(out_moist,3), round(out_owm,3), round(out_nos,3), round(selisih_owm,3)]
             
-            # Perintah append_row dengan value_input_option agar akurat turun ke bawah
             sheet.append_row(data_baru, value_input_option='USER_ENTERED')
-            st.success(f"✅ Data berhasil disimpan untuk waktu: {input_tanggal_jam}!")
+            st.success(f"✅ Data berhasil disimpan untuk waktu: {waktu_gabungan}!")
         except Exception as e:
             st.error(f"Gagal menyimpan: {e}")
 
