@@ -141,8 +141,10 @@ with tab1:
 with tab2:
     st.markdown("### 📈 Logbook & Riwayat Data Lab")
     
-    if st.button("🔄 Segarkan Data"):
-        st.rerun()
+    col_btn1, col_btn2 = st.columns([1, 4])
+    with col_btn1:
+        if st.button("🔄 Segarkan Data"):
+            st.rerun()
         
     try:
         records = sheet.get_all_records()
@@ -156,12 +158,13 @@ with tab2:
                 kolom_waktu = df.columns[0] 
                 df_chart = df.set_index(kolom_waktu)
                 
-                kolom_inlet = [c for c in df.columns if "Inlet" in c and "O/WM" in c][0]
-                kolom_outlet = [c for c in df.columns if "Outlet" in c and "O/WM" in c][0]
+                # Pencari kolom yang disesuaikan dengan header baru ("In - O/WM (%)" dan "Out - O/WM (%)")
+                kolom_inlet = [c for c in df.columns if "In -" in c and "O/WM" in c][0]
+                kolom_outlet = [c for c in df.columns if "Out -" in c and "O/WM" in c][0]
                 
                 st.line_chart(df_chart[[kolom_inlet, kolom_outlet]])
-            except Exception:
-                st.info("Grafik akan terbentuk otomatis setelah data historis bertambah.")
+            except Exception as e_grafik:
+                st.info(f"Grafik sedang menyesuaikan kolom data: {e_grafik}")
         else:
             st.info("Belum ada data tersimpan di Google Sheets.")
             
