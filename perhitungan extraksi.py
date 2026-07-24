@@ -14,20 +14,13 @@ from reportlab.lib import colors
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
 
-# CSS Mutakhir untuk Menghilangkan Tombol Manage App Secara Total
+# CSS untuk menyembunyikan menu atas & footer bawaan Streamlit
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 .stDeployButton {display:none;}
 div[data-testid="stStatusWidget"] {visibility: hidden;}
-
-/* Menghilangkan badge, logo, dan tombol Manage App di pojok kanan bawah */
-.viewerBadge_container__1QSob {display: none !important; visibility: hidden !important;}
-div[class*="viewerBadge"] {display: none !important; visibility: hidden !important;}
-iframe[title*="streamlit"] {display: none !important; visibility: hidden !important;}
-.styles_viewerBadge__1yG5_ {display: none !important;}
-a[href*="streamlit.cloud"] {display: none !important;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -62,14 +55,11 @@ def auth_system():
     if not st.session_state["logged_in"]:
         st.title("🔐 Sistem Informasi Lab - DAF Extraction")
         
-        # Pilihan Tipe Akses
         role_login = st.radio("Pilih Masuk Sebagai:", ["👤 Anggota (Staff Lab)", "🛠️ Administrator (Admin)"], horizontal=True)
         st.markdown("---")
         
-        # TAB MENU UTAMA DI DEPAN
         tab_login, tab_reg, tab_reset = st.tabs(["🔑 Masuk (Login)", "📝 Daftar Akun Baru", "🔄 Lupa / Ubah Password"])
         
-        # 1. TAB LOGIN
         with tab_login:
             st.subheader("Silakan Masuk")
             u_login = st.text_input("Username", key="u_log_input")
@@ -106,7 +96,6 @@ def auth_system():
                 except Exception as e:
                     st.error(f"Terjadi kesalahan saat login: {e}")
 
-        # 2. TAB DAFTAR AKUN BARU
         with tab_reg:
             st.subheader("Buat Akun Anggota Baru")
             u_reg = st.text_input("Buat Username Baru", key="u_reg_input")
@@ -127,11 +116,10 @@ def auth_system():
                                 return False
                                 
                         sheet_users.append_row([u_reg.strip(), p_reg.strip()], value_input_option='USER_ENTERED')
-                        st.success("✅ Pendaftaran berhasil! Silakan pindah ke tab 'Masuk (Login)' di sebelah kiri untuk masuk.")
+                        st.success("✅ Pendaftaran berhasil! Silakan pindah ke tab 'Masuk (Login)' untuk masuk.")
                     except Exception as e:
                         st.error(f"Gagal mendaftar: {e}")
 
-        # 3. TAB LUPA / UBAH PASSWORD
         with tab_reset:
             st.subheader("Ubah Password Akun")
             u_reset = st.text_input("Masukkan Username Anda", key="u_reset_input")
@@ -159,17 +147,27 @@ def auth_system():
 if not auth_system():
     st.stop()
 
-# Sidebar Info Pengguna & Logout
+# --- SIDEBAR NAVIGASI & MENU MULTI-HALAMAN ---
 with st.sidebar:
     st.write(f"👤 User: **{st.session_state.get('username')}**")
     st.write(f"🛡️ Hak Akses: **{st.session_state.get('role')}**")
     st.markdown("---")
+    
+    st.subheader("📌 Navigasi Menu")
+    # Pilihan menu / halaman berbeda di dalam satu web
+    pilih_halaman = st.radio(
+        "Pilih Halaman:", 
+        [
+            "🛢️ Input DAF Extraction", 
+            "📈 Rekap & Tren 24 Jam",
+            "➕ [Contoh] Input Stasiun Lain"  # Bapak bisa ubah/tambah halaman lain di sini
+        ]
+    )
+    
+    st.markdown("---")
     if st.button("🚪 Keluar (Logout)", use_container_width=True):
         st.session_state["logged_in"] = False
         st.rerun()
-
-# ================= KODE UTAMA SETELAH LOGIN BERHASIL =================
-st.title("🛢️ Sistem Informasi Lab - DAF Extraction")
 
 # --- FUNGSI PEMBUAT PDF LAPORAN LAB ---
 def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
@@ -221,11 +219,12 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
     buffer.seek(0)
     return buffer.getvalue()
 
-# --- MEMBUAT TAB MENU UTAMA APLIKASI ---
-tab1, tab2 = st.tabs(["📝 Input Harian", "📈 Rekap & Tren 24 Jam"])
 
-# ================= TAB 1: INPUT HARIAN =================
-with tab1:
+# ================= KONDISI HALAMAN (MULTI-PAGE) =================
+
+# 1. HALAMAN: INPUT DAF EXTRACTION
+if pilih_halaman == "🛢️ Input DAF Extraction":
+    st.title("🛢️ Sistem Informasi Lab - DAF Extraction")
     st.markdown("### 📥 Input Data Laboratorium & Waktu Analisa")
     st.info("💡 Tip: Anda bisa mengetik angka dengan bebas (bisa menggunakan titik . atau koma ,).")
     
@@ -300,7 +299,7 @@ with tab1:
     mi1, mi2, mi3, mi4 = st.columns(4)
     mi1.metric("💧 Moisture", f"{in_moist:.2f} %")
     mi2.metric("🛢️ O/WM", f"{in_owm:.3f} %")
-    mi3.metric("🛢️ O/DM", f"{in_odm:.3f} %")
+    mi3.metric("🛢️ O/DM", f"{in_odm:.2f} %")
     mi4.metric("⚖️ NOS", f"{in_nos:.2f} %")
 
     st.text("OUTLET DAF:")
@@ -316,7 +315,7 @@ with tab1:
     s1.metric("⚖️ Selisih Oil", f"{selisih_oil:.4f} gr")
     s2.metric("⚖️ Selisih O/WM", f"{selisih_owm:.3f} %")
     s3.metric("⚖️ Selisih O/DM", f"{selisih_odm:.3f} %")
-    s4.metric("⚖️ Selisih NOS", f"{selisih_nos:.2f} %")
+    s4.metric("⚖️ Selisih NOS", f"{selisih_nos:.3f} %")
 
     st.markdown("---")
     
@@ -357,9 +356,9 @@ with tab1:
             use_container_width=True
         )
 
-# ================= TAB 2: REKAP BULANAN =================
-with tab2:
-    st.markdown("### 📈 Logbook & Riwayat Data Lab")
+# 2. HALAMAN: REKAP & TREN 24 JAM
+elif pilih_halaman == "📈 Rekap & Tren 24 Jam":
+    st.title("📈 Logbook & Riwayat Data Lab")
     
     col_btn1, col_btn2 = st.columns([1, 4])
     with col_btn1:
@@ -389,3 +388,13 @@ with tab2:
             
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memuat data: {e}")
+
+# 3. HALAMAN: CONTOH HALAMAN TAMBAHAN (STASIUN LAIN)
+elif pilih_halaman == "➕ [Contoh] Input Stasiun Lain":
+    st.title("➕ Halaman Input Stasiun Lain")
+    st.info("💡 Halaman ini disiapkan jika nanti Bapak ingin menambah formulir input untuk stasiun pabrik yang berbeda (misalnya Press, Kernel, Boiler, dll.).")
+    
+    st.text_input("Nama Sampel / Stasiun")
+    st.number_input("Nilai Parameter Pengujian")
+    if st.button("Simpan Data Stasiun Lain"):
+        st.success("Data berhasil disiapkan!")
