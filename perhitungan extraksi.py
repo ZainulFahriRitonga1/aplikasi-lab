@@ -50,7 +50,7 @@ def get_sheets():
         sheet_losses = spreadsheet.add_worksheet(title="Losses", rows="100", cols="10")
         sheet_losses.append_row([
             "Waktu", "Stasiun", "Berat Sampel Basah", "Berat Sampel Kering", 
-            "Berat Minyak/Kernel", "Kadar Air (%)", "Losses (%)", "Petugas"
+            "Berat Minyak/Kernel", "Ratio Terolah (%)", "Kadar Air (%)", "Losses (%)", "Petugas"
         ], value_input_option='USER_ENTERED')
         
     return sheet_daf, sheet_users, sheet_losses
@@ -204,7 +204,7 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
         ["Minyak / Oil (gr)", f"{in_res[2]:.4f}", f"{out_res[2]:.4f}", f"{selisih[0]:.4f} gr"],
         ["Moisture (%)", f"{in_res[3]:.2f} %", f"{out_res[3]:.2f} %", "-"],
         ["O/WM (%)", f"{in_res[4]:.3f} %", f"{out_res[4]:.3f} %", f"{selisih[1]:.3f} %"],
-        ["O/DM (%)", f"{in_res[5]:.2f} %", f"{out_res[5]:.2f} %", f"{selisih[2]:.3f} %"],
+        ["O/DM (%)", f"{in_res[5]:.2f} %", f"{out_res[5]:.2f} %", f"{selisih[2]:.2f} %"],
         ["NOS (%)", f"{in_res[6]:.2f} %", f"{out_res[6]:.2f} %", f"{selisih[3]:.2f} %"],
     ]
     
@@ -308,7 +308,7 @@ if pilih_halaman == "🛢️ Input DAF Extraction":
     mi1, mi2, mi3, mi4 = st.columns(4)
     mi1.metric("💧 Moisture", f"{in_moist:.2f} %")
     mi2.metric("🛢️ O/WM", f"{in_owm:.3f} %")
-    mi3.metric("🛢️ O/DM", f"{in_odm:.2f} %")
+    mi3.metric("🛢️ O/DM", f"{in_odm:.3f} %")
     mi4.metric("⚖️ NOS", f"{in_nos:.2f} %")
 
     st.text("OUTLET DAF:")
@@ -406,8 +406,22 @@ elif pilih_halaman == "📊 Perhitungan Losses & TOL":
     col_l1, col_l2 = st.columns(2)
     with col_l1:
         st.date_input("📅 Tanggal Analisa", value=datetime.today(), key="loss_tgl")
-        st.selectbox("🏭 Pilih Stasiun / Sample", ["Ampas Press (Pressed Fibre)", "Tandan Kosong (Empty Bunch)", "Decanter Solid", "Sludge Centrifuge", "Biji / Nut"], key="loss_stasiun")
+        st.selectbox(
+            "🏭 Pilih Stasiun / Sample", 
+            [
+                "Ampas Press (Pressed Fibre)", 
+                "Tandan Kosong (Empty Bunch)", 
+                "Sebelum Bunch Press", 
+                "Sesudah Bunch Press", 
+                "Decanter Solid", 
+                "Sludge Centrifuge", 
+                "Sludge Waste", 
+                "Biji / Nut"
+            ], 
+            key="loss_stasiun"
+        )
         berat_basah_loss = st.text_input("Berat Sampel Basah (gr)", value="100.0", key="lb_1")
+        ratio_terolah = st.slider("📊 Ratio Tandan Terolah (%)", min_value=0.0, max_value=100.0, value=100.0, step=0.1, help="Persentase proporsi yang terolah vs tidak terolah")
     with col_l2:
         st.text_input("⏰ Jam Analisa", value=datetime.now().strftime("%H:%M"), key="loss_jam")
         berat_kering_loss = st.text_input("Berat Sampel Kering / Residu (gr)", value="35.0", key="lb_2")
@@ -424,14 +438,18 @@ elif pilih_halaman == "📊 Perhitungan Losses & TOL":
     b_minyak = parse_num(berat_minyak_loss)
 
     moisture_loss = ((b_basah - b_kering) / b_basah) * 100 if b_basah > 0 else 0
-    persen_losses = (b_minyak / b_basah) * 100 if b_basah > 0 else 0
+    
+    # Perhitungan losses murni dikali ratio persentase terolah
+    raw_losses = (b_minyak / b_basah) * 100 if b_basah > 0 else 0
+    persen_losses = raw_losses * (ratio_terolah / 100.0)
 
     st.markdown("---")
     st.markdown("### 📈 Hasil Perhitungan Stasiun Ini")
     
-    m1, m2 = st.columns(2)
+    m1, m2, m3 = st.columns(3)
     m1.metric("💧 Kadar Air (Moisture)", f"{moisture_loss:.2f} %")
-    m2.metric("📉 Losses Stasiun Ini", f"{persen_losses:.3f} %", delta_color="inverse")
+    m2.metric("⚙️ Ratio Terolah", f"{ratio_terolah:.1f} %")
+    m3.metric("📉 Losses Akhir", f"{persen_losses:.3f} %", delta_color="inverse")
 
     st.markdown("---")
     if st.button("💾 SIMPAN LOSSES KE DATABASE", use_container_width=True):
@@ -443,16 +461,16 @@ elif pilih_halaman == "📊 Perhitungan Losses & TOL":
             data_row = [
                 waktu_loss, stasiun_pilih, 
                 round(b_basah, 4), round(b_kering, 4), round(b_minyak, 4), 
-                round(moisture_loss, 2), round(persen_losses, 3), user_pembuat
+                round(ratio_terolah, 2), round(moisture_loss, 2), round(persen_losses, 3), user_pembuat
             ]
             sheet_losses.append_row(data_row, value_input_option='USER_ENTERED')
-            st.success(f"✅ Data Losses stasiun '{stasiun_pilih}' berhasil disimpan!")
+            st.success(f"✅ Data Losses stasiun '{stasiun_pilih}' berhasil disimpan ke database!")
         except Exception as e:
             st.error(f"Gagal menyimpan data losses: {e}")
 
     st.markdown("---")
     st.markdown("### 🧮 Rekapitulasi Total Oil Losses (TOL)")
-    st.info("💡 TOL (Total Oil Losses) dihitung dengan menjumlahkan persentase kehilangan minyak dari seluruh stasiun pengolahan.")
+    st.info("💡 TOL (Total Oil Losses) otomatis mengakumulasi seluruh data losses stasiun termasuk *Sludge Waste*.")
 
     if st.button("🔄 Hitung & Refresh Total TOL", use_container_width=True):
         st.rerun()
@@ -462,10 +480,8 @@ elif pilih_halaman == "📊 Perhitungan Losses & TOL":
         if len(records_loss) > 0:
             df_loss = pd.DataFrame(records_loss)
             
-            # Tampilkan tabel data
             st.dataframe(df_loss, use_container_width=True)
             
-            # Hitung Total TOL (Penjumlahan kolom 'Losses (%)')
             if "Losses (%)" in df_loss.columns:
                 total_tol = df_loss["Losses (%)"].astype(float).sum()
                 
@@ -473,7 +489,7 @@ elif pilih_halaman == "📊 Perhitungan Losses & TOL":
                 st.metric(
                     label="🌟 **TOTAL OIL LOSSES (TOL) Keseluruhan**", 
                     value=f"{total_tol:.3f} %",
-                    help="Akumulasi seluruh losses stasiun"
+                    help="Akumulasi seluruh losses stasiun termasuk sludge waste"
                 )
         else:
             st.info("Belum ada data losses tersimpan di database untuk dikalkulasi menjadi TOL.")
