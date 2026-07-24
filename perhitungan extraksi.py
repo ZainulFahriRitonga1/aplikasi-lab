@@ -11,8 +11,21 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# --- KONFIGURASI HALAMAN ---
+# --- KONFIGURASI HALAMAN & SEMBUNYIKAN MANAGE APP ---
 st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
+
+# Perintah CSS khusus untuk menyembunyikan tombol "Manage app" bawaan Streamlit
+hide_streamlit_style = """
+<style>
+[data-testid="stStatusWidget"] {visibility: hidden;}
+.viewerBadge_container__1QSob {visibility: hidden;}
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+.stDeployButton {display:none;}
+div[data-testid="stToolbar"] {visibility: hidden; height: 0px; position: fixed;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # --- KONEKSI KE GOOGLE SHEETS ---
 scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -72,7 +85,6 @@ def auth_system():
                         df_users = pd.DataFrame(users_data)
                         
                         if not df_users.empty and "Username" in df_users.columns:
-                            # Bersihkan spasi jika ada
                             df_users["Username"] = df_users["Username"].astype(str).str.strip()
                             df_users["Password"] = df_users["Password"].astype(str).str.strip()
                             
