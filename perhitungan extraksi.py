@@ -14,17 +14,20 @@ from reportlab.lib import colors
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
 
-# CSS untuk menyembunyikan menu, footer, dan tombol Manage App
+# CSS Mutakhir untuk Menghilangkan Tombol Manage App Secara Total
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 .stDeployButton {display:none;}
 div[data-testid="stStatusWidget"] {visibility: hidden;}
-/* Sembunyikan tombol Manage App di pojok kanan bawah */
-div:has(> a[href*="streamlit.cloud"]) {display: none !important;}
-button[kind="header"] {display: none !important;}
-.viewerBadge_container__1QSob {display: none !important;}
+
+/* Menghilangkan badge, logo, dan tombol Manage App di pojok kanan bawah */
+.viewerBadge_container__1QSob {display: none !important; visibility: hidden !important;}
+div[class*="viewerBadge"] {display: none !important; visibility: hidden !important;}
+iframe[title*="streamlit"] {display: none !important; visibility: hidden !important;}
+.styles_viewerBadge__1yG5_ {display: none !important;}
+a[href*="streamlit.cloud"] {display: none !important;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -297,7 +300,7 @@ with tab1:
     mi1, mi2, mi3, mi4 = st.columns(4)
     mi1.metric("💧 Moisture", f"{in_moist:.2f} %")
     mi2.metric("🛢️ O/WM", f"{in_owm:.3f} %")
-    mi3.metric("🛢️ O/DM", f"{in_odm:.2f} %")
+    mi3.metric("🛢️ O/DM", f"{in_odm:.3f} %")
     mi4.metric("⚖️ NOS", f"{in_nos:.2f} %")
 
     st.text("OUTLET DAF:")
@@ -312,7 +315,7 @@ with tab1:
     s1, s2, s3, s4 = st.columns(4)
     s1.metric("⚖️ Selisih Oil", f"{selisih_oil:.4f} gr")
     s2.metric("⚖️ Selisih O/WM", f"{selisih_owm:.3f} %")
-    s3.metric("⚖️ Selisih O/DM", f"{selisih_odm:.2f} %")
+    s3.metric("⚖️ Selisih O/DM", f"{selisih_odm:.3f} %")
     s4.metric("⚖️ Selisih NOS", f"{selisih_nos:.2f} %")
 
     st.markdown("---")
