@@ -12,7 +12,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
+st.set_page_config(page_title="DAF & Losses Dashboard", layout="wide", page_icon="🛢️")
 
 # CSS untuk menyembunyikan menu atas & footer bawaan Streamlit
 hide_streamlit_style = """
@@ -35,17 +35,30 @@ def get_sheets():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
     spreadsheet = client.open("Database_DAF")
-    sheet_data = spreadsheet.get_worksheet(0) # Sheet 1 untuk Lab DAF
     
+    # Sheet 1 untuk Lab DAF Extraction
+    sheet_daf = spreadsheet.get_worksheet(0) 
+    
+    # Ambil atau buat Sheet khusus 'Users' untuk database akun
     try:
         sheet_users = spreadsheet.worksheet("Users")
     except:
         sheet_users = spreadsheet.add_worksheet(title="Users", rows="100", cols="2")
         sheet_users.append_row(["Username", "Password"], value_input_option='USER_ENTERED')
         
-    return sheet_data, sheet_users
+    # Ambil atau buat Sheet khusus 'Losses' untuk database Perhitungan Losses
+    try:
+        sheet_losses = spreadsheet.worksheet("Losses")
+    except:
+        sheet_losses = spreadsheet.add_worksheet(title="Losses", rows="100", cols="10")
+        sheet_losses.append_row([
+            "Waktu", "Stasiun", "Berat Sampel Basah", "Berat Sampel Kering", 
+            "Berat Minyak/Kernel", "Kadar Air (%)", "Losses (%)", "Petugas"
+        ], value_input_option='USER_ENTERED')
+        
+    return sheet_daf, sheet_users, sheet_losses
 
-sheet, sheet_users = get_sheets()
+sheet, sheet_users, sheet_losses = get_sheets()
 
 # --- SISTEM LOGIN DENGAN TAB MENU DI DEPAN ---
 def auth_system():
@@ -53,7 +66,7 @@ def auth_system():
         st.session_state["logged_in"] = False
 
     if not st.session_state["logged_in"]:
-        st.title("🔐 Sistem Informasi Lab - DAF Extraction")
+        st.title("🔐 Sistem Informasi Lab - Palm Oil Mill")
         
         role_login = st.radio("Pilih Masuk Sebagai:", ["👤 Anggota (Staff Lab)", "🛠️ Administrator (Admin)"], horizontal=True)
         st.markdown("---")
@@ -154,13 +167,12 @@ with st.sidebar:
     st.markdown("---")
     
     st.subheader("📌 Navigasi Menu")
-    # Pilihan menu / halaman berbeda di dalam satu web
     pilih_halaman = st.radio(
         "Pilih Halaman:", 
         [
             "🛢️ Input DAF Extraction", 
-            "📈 Rekap & Tren 24 Jam",
-            "➕ [Contoh] Input Stasiun Lain"  # Bapak bisa ubah/tambah halaman lain di sini
+            "📈 Rekap & Tren DAF",
+            "📊 Perhitungan Losses Stasiun"
         ]
     )
     
@@ -169,7 +181,7 @@ with st.sidebar:
         st.session_state["logged_in"] = False
         st.rerun()
 
-# --- FUNGSI PEMBUAT PDF LAPORAN LAB ---
+# --- FUNGSI PEMBUAT PDF LAPORAN LAB DAF ---
 def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
@@ -195,7 +207,7 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
         ["Minyak / Oil (gr)", f"{in_res[2]:.4f}", f"{out_res[2]:.4f}", f"{selisih[0]:.4f} gr"],
         ["Moisture (%)", f"{in_res[3]:.2f} %", f"{out_res[3]:.2f} %", "-"],
         ["O/WM (%)", f"{in_res[4]:.3f} %", f"{out_res[4]:.3f} %", f"{selisih[1]:.3f} %"],
-        ["O/DM (%)", f"{in_res[5]:.2f} %", f"{out_res[5]:.2f} %", f"{selisih[2]:.2f} %"],
+        ["O/DM (%)", f"{in_res[5]:.2f} %", f"{out_res[5]:.2f} %", f"{selisih[2]:.3f} %"],
         ["NOS (%)", f"{in_res[6]:.2f} %", f"{out_res[6]:.2f} %", f"{selisih[3]:.2f} %"],
     ]
     
@@ -357,8 +369,8 @@ if pilih_halaman == "🛢️ Input DAF Extraction":
         )
 
 # 2. HALAMAN: REKAP & TREN 24 JAM
-elif pilih_halaman == "📈 Rekap & Tren 24 Jam":
-    st.title("📈 Logbook & Riwayat Data Lab")
+elif pilih_halaman == "📈 Rekap & Tren DAF":
+    st.title("📈 Logbook & Riwayat Data Lab DAF")
     
     col_btn1, col_btn2 = st.columns([1, 4])
     with col_btn1:
@@ -389,12 +401,66 @@ elif pilih_halaman == "📈 Rekap & Tren 24 Jam":
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memuat data: {e}")
 
-# 3. HALAMAN: CONTOH HALAMAN TAMBAHAN (STASIUN LAIN)
-elif pilih_halaman == "➕ [Contoh] Input Stasiun Lain":
-    st.title("➕ Halaman Input Stasiun Lain")
-    st.info("💡 Halaman ini disiapkan jika nanti Bapak ingin menambah formulir input untuk stasiun pabrik yang berbeda (misalnya Press, Kernel, Boiler, dll.).")
+# 3. HALAMAN: PERHITUNGAN LOSSES STASIUN
+elif pilih_halaman == "📊 Perhitungan Losses Stasiun":
+    st.title("📊 Perhitungan Losses Laboratorium")
+    st.markdown("### 📥 Form Input Analisa Losses (Ampas Press, Empty Bunch, Decanter Solid, dll)")
     
-    st.text_input("Nama Sampel / Stasiun")
-    st.number_input("Nilai Parameter Pengujian")
-    if st.button("Simpan Data Stasiun Lain"):
-        st.success("Data berhasil disiapkan!")
+    col_l1, col_l2 = st.columns(2)
+    with col_l1:
+        st.date_input("📅 Tanggal Analisa", value=datetime.today(), key="loss_tgl")
+        st.selectbox("🏭 Pilih Stasiun / Sample", ["Ampas Press", "Tandan Kosong (Empty Bunch)", "Decanter Solid", "Kernel Sludge", "Biji / Nut"], key="loss_stasiun")
+        berat_basah_loss = st.text_input("Berat Sampel Basah (gr)", value="100.0", key="lb_1")
+    with col_l2:
+        st.text_input("⏰ Jam Analisa", value=datetime.now().strftime("%H:%M"), key="loss_jam")
+        berat_kering_loss = st.text_input("Berat Sampel Kering / Residu (gr)", value="35.0", key="lb_2")
+        berat_minyak_loss = st.text_input("Berat Minyak / Ekstrak (gr)", value="5.5", key="lb_3")
+
+    def parse_num(t):
+        try:
+            return float(str(t).strip().replace(',', '.'))
+        except:
+            return 0.0
+
+    b_basah = parse_num(berat_basah_loss)
+    b_kering = parse_num(berat_kering_loss)
+    b_minyak = parse_num(berat_minyak_loss)
+
+    # Perhitungan persentase moisture & losses
+    moisture_loss = ((b_basah - b_kering) / b_basah) * 100 if b_basah > 0 else 0
+    persen_losses = (b_minyak / b_basah) * 100 if b_basah > 0 else 0
+
+    st.markdown("---")
+    st.markdown("### 📈 Hasil Perhitungan Losses")
+    
+    m1, m2 = st.columns(2)
+    m1.metric("💧 Kadar Air (Moisture)", f"{moisture_loss:.2f} %")
+    m2.metric("📉 Persentase Losses", f"{persen_losses:.3f} %", delta_color="inverse")
+
+    st.markdown("---")
+    if st.button("💾 SIMPAN LOSSES KE DATABASE", use_container_width=True):
+        try:
+            waktu_loss = f"{st.session_state.get('loss_tgl')} {st.session_state.get('loss_jam')}"
+            stasiun_pilih = st.session_state.get('loss_stasiun')
+            user_pembuat = st.session_state.get('username')
+            
+            data_row = [
+                waktu_loss, stasiun_pilih, 
+                round(b_basah, 4), round(b_kering, 4), round(b_minyak, 4), 
+                round(moisture_loss, 2), round(persen_losses, 3), user_pembuat
+            ]
+            sheet_losses.append_row(data_row, value_input_option='USER_ENTERED')
+            st.success(f"✅ Data Losses stasiun {stasiun_pilih} berhasil disimpan ke Google Sheets!")
+        except Exception as e:
+            st.error(f"Gagal menyimpan data losses: {e}")
+
+    st.markdown("### 📋 Riwayat Data Losses Tersimpan")
+    try:
+        records_loss = sheet_losses.get_all_records()
+        if len(records_loss) > 0:
+            df_loss = pd.DataFrame(records_loss)
+            st.dataframe(df_loss, use_container_width=True)
+        else:
+            st.info("Belum ada data losses tersimpan.")
+    except Exception as e:
+        st.info(f"Memuat data riwayat losses...")
