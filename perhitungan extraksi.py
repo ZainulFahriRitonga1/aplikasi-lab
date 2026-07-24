@@ -14,56 +14,132 @@ from reportlab.lib import colors
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="DAF Dashboard", layout="wide", page_icon="🛢️")
 
-# --- SISTEM LOGIN SEDERHANA ---
-def check_password():
-    """Mengembalikan True jika user berhasil login."""
-    
-    def password_entered():
-        # Masukkan Username & Password rahasia di sini
-        if st.session_state["username"] == "zainul" and st.session_state["password"] == "sawit12345":
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # Hapus password dari memori demi keamanan
-            del st.session_state["username"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        # Tampilkan kotak login jika belum login
-        st.title("🔐 Login Sistem Informasi Lab - DAF")
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", key="password")
-        st.button("Login", on_click=password_entered)
-        if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-            st.error("😕 Username atau Password salah. Silakan coba lagi.")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.title("🔐 Login Sistem Informasi Lab - DAF")
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", key="password")
-        st.button("Login", on_click=password_entered)
-        st.error("😕 Username atau Password salah. Silakan coba lagi.")
-        return False
-    else:
-        return True
-
-if not check_password():
-    st.stop()  # Hentikan eksekusi halaman jika belum login
-
-# ================= KODE UTAMA SETELAH LOGIN BERHASIL =================
-st.title("🛢️ Sistem Informasi Lab - DAF Extraction")
-
 # --- KONEKSI KE GOOGLE SHEETS ---
 scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 @st.cache_resource
-def get_sheet():
+def get_sheets():
     creds_json = st.secrets["google_credentials"]
     creds_dict = json.loads(creds_json)
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    return client.open("Database_DAF").get_worksheet(0)
+    spreadsheet = client.open("Database_DAF")
+    sheet_data = spreadsheet.get_worksheet(0) # Sheet 1 untuk Lab DAF
+    
+    # Ambil atau buat Sheet khusus 'Users' untuk database akun
+    try:
+        sheet_users = spreadsheet.worksheet("Users")
+    except:
+        sheet_users = spreadsheet.add_worksheet(title="Users", rows="100", cols="2")
+        sheet_users.append_row(["Username", "Password"], value_input_option='USER_ENTERED')
+        
+    return sheet_data, sheet_users
 
-sheet = get_sheet()
+sheet, sheet_users = get_sheets()
+
+# --- SISTEM LOGIN, REGISTER, & LUPA PASSWORD ---
+def auth_system():
+    if "logged_in" not in st.session_state:
+        st.session_state["logged_in"] = False
+
+    if not st.session_state["logged_in"]:
+        st.title("🔐 Sistem Informasi Lab - DAF Extraction")
+        menu_auth = st.selectbox("Pilih Menu", ["🔑 Login", "📝 Daftar Akun Baru (Register)", "🔄 Lupa / Ubah Password"])
+        
+        # 1. MENU LOGIN
+        if menu_auth == "🔑 Login":
+            st.subheader("Silakan Masuk ke Akun Anda")
+            u_input = st.text_input("Username", key="login_user")
+            p_input = st.text_input("Password", type="password", key="login_pass")
+            
+            if st.button("Masuk", use_container_width=True):
+                try:
+                    users_data = sheet_users.get_all_records()
+                    df_users = pd.DataFrame(users_data)
+                    
+                    # Cek akun master admin bawaan atau dari database
+                    if u_input == "labdaf" and p_input == "sawit123":
+                        st.session_state["logged_in"] = True
+                        st.session_state["username"] = u_input
+                        st.rerun()
+                    elif not df_users.empty and "Username" in df_users.columns:
+                        match = df_users[(df_users["Username"] == u_input) & (df_users["Password"] == p_input)]
+                        if not match.empty:
+                            st.session_state["logged_in"] = True
+                            st.session_state["username"] = u_input
+                            st.rerun()
+                        else:
+                            st.error("❌ Username atau Password salah!")
+                    else:
+                        st.error("❌ Akun tidak ditemukan. Silakan daftar terlebih dahulu.")
+                except Exception as e:
+                    st.error(f"Terjadi kesalahan saat login: {e}")
+
+        # 2. MENU DAFTAR AKUN BARU
+        elif menu_auth == "📝 Daftar Akun Baru (Register)":
+            st.subheader("Buat Akun Staf / Analis Baru")
+            new_user = st.text_input("Buat Username Baru", key="reg_user")
+            new_pass = st.text_input("Buat Password Baru", type="password", key="reg_pass")
+            confirm_pass = st.text_input("Konfirmasi Password Baru", type="password", key="reg_pass_conf")
+            
+            if st.button("Daftar Sekarang", use_container_width=True):
+                if not new_user or not new_pass:
+                    st.warning("⚠️ Username dan Password tidak boleh kosong!")
+                elif new_pass != confirm_pass:
+                    st.error("❌ Password konfirmasi tidak cocok!")
+                else:
+                    try:
+                        users_data = sheet_users.get_all_records()
+                        df_users = pd.DataFrame(users_data)
+                        
+                        if not df_users.empty and "Username" in df_users.columns and new_user in df_users["Username"].values:
+                            st.error("❌ Username sudah terdaftar! Gunakan username lain.")
+                        else:
+                            sheet_users.append_row([new_user, new_pass], value_input_option='USER_ENTERED')
+                            st.success("✅ Pendaftaran berhasil! Silakan pindah ke menu 'Login' untuk masuk.")
+                    except Exception as e:
+                        st.error(f"Gagal mendaftar: {e}")
+
+        # 3. MENU LUPA / UBAH PASSWORD
+        elif menu_auth == "🔄 Lupa / Ubah Password":
+            st.subheader("Ubah Password Akun Anda")
+            reset_user = st.text_input("Masukkan Username Anda", key="reset_user")
+            old_pass = st.text_input("Masukkan Password Lama (atau Password Darurat)", type="password", key="reset_old")
+            new_pass_val = st.text_input("Masukkan Password Baru", type="password", key="reset_new")
+            
+            if st.button("Perbarui Password", use_container_width=True):
+                try:
+                    cell = sheet_users.find(reset_user)
+                    if cell:
+                        row_idx = cell.row
+                        # Verifikasi password lama (kolom B adalah password)
+                        current_pass_in_sheet = sheet_users.cell(row_idx, 2).value
+                        if current_pass_in_sheet == old_pass or old_pass == "sawit123": # sawit123 sebagai master bypass jika lupa total
+                            sheet_users.update_cell(row_idx, 2, new_pass_val)
+                            st.success("✅ Password berhasil diubah! Silakan login dengan password baru Anda.")
+                        else:
+                            st.error("❌ Password lama salah!")
+                    else:
+                        st.error("❌ Username tidak ditemukan di database!")
+                except Exception as e:
+                    st.error(f"Gagal merubah password: {e}")
+                    
+        return False
+    else:
+        return True
+
+if not auth_system():
+    st.stop()
+
+# Tombol Logout di sidebar
+with st.sidebar:
+    st.write(f"👤 Login sebagai: **{st.session_state.get('username', 'Admin')}**")
+    if st.button("🚪 Keluar (Logout)"):
+        st.session_state["logged_in"] = False
+        st.rerun()
+
+# ================= KODE UTAMA SETELAH LOGIN BERHASIL =================
+st.title("🛢️ Sistem Informasi Lab - DAF Extraction")
 
 # --- FUNGSI PEMBUAT PDF LAPORAN LAB ---
 def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
@@ -72,23 +148,11 @@ def create_pdf_report(waktu, in_raw, in_res, out_raw, out_res, selisih):
     story = []
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'TitleStyle',
-        parent=styles['Heading1'],
-        fontSize=15,
-        alignment=1,
-        textColor=colors.HexColor("#1b4332")
-    )
-    subtitle_style = ParagraphStyle(
-        'SubTitleStyle',
-        parent=styles['Normal'],
-        fontSize=10,
-        alignment=1,
-        textColor=colors.HexColor("#555555")
-    )
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=15, alignment=1, textColor=colors.HexColor("#1b4332"))
+    subtitle_style = ParagraphStyle('SubTitleStyle', parent=styles['Normal'], fontSize=10, alignment=1, textColor=colors.HexColor("#555555"))
     
     story.append(Paragraph("LAPORAN ANALISA LABORATORIUM - DAF EXTRACTION", title_style))
-    story.append(Paragraph(f"Waktu Analisa: {waktu}", subtitle_style))
+    story.append(Paragraph(f"Waktu Analisa: {waktu} | Oleh: {st.session_state.get('username', 'Staf')}", subtitle_style))
     story.append(Spacer(1, 15))
     
     data_table = [
@@ -281,8 +345,8 @@ with tab2:
             
             try:
                 st.markdown("#### Grafik Tren Pergerakan O/WM")
-                kolom_waktu = df.columns[0] 
-                df_chart = df.set_index(kolom_waktu)
+                kolom_wakun = df.columns[0] 
+                df_chart = df.set_index(kolom_wakun)
                 
                 kolom_inlet = [c for c in df.columns if "In -" in c and "O/WM" in c][0]
                 kolom_outlet = [c for c in df.columns if "Out -" in c and "O/WM" in c][0]
