@@ -54,8 +54,8 @@ def auth_system():
         # 1. TAB LOGIN
         with tab_login:
             st.subheader("Silakan Masuk")
-            u_login = st.text_input("Username", key="u_log")
-            p_login = st.text_input("Password", type="password", key="p_log")
+            u_login = st.text_input("Username", key="u_log_input")
+            p_login = st.text_input("Password", type="password", key="p_log_input")
             
             if st.button("Masuk Sekarang", use_container_width=True):
                 try:
@@ -72,7 +72,11 @@ def auth_system():
                         df_users = pd.DataFrame(users_data)
                         
                         if not df_users.empty and "Username" in df_users.columns:
-                            match = df_users[(df_users["Username"] == u_login) & (df_users["Password"] == p_login)]
+                            # Bersihkan spasi jika ada
+                            df_users["Username"] = df_users["Username"].astype(str).str.strip()
+                            df_users["Password"] = df_users["Password"].astype(str).str.strip()
+                            
+                            match = df_users[(df_users["Username"] == u_login.strip()) & (df_users["Password"] == p_login.strip())]
                             if not match.empty:
                                 st.session_state["logged_in"] = True
                                 st.session_state["username"] = u_login
@@ -81,15 +85,15 @@ def auth_system():
                             else:
                                 st.error("❌ Username atau Password Anggota salah!")
                         else:
-                            st.error("❌ Belum ada akun terdaftar.")
+                            st.error("❌ Belum ada akun terdaftar di database.")
                 except Exception as e:
                     st.error(f"Terjadi kesalahan saat login: {e}")
 
         # 2. TAB DAFTAR AKUN BARU
         with tab_reg:
             st.subheader("Buat Akun Anggota Baru")
-            u_reg = st.text_input("Buat Username Baru", key="u_r")
-            p_reg = st.text_input("Buat Password Baru", type="password", key="p_r")
+            u_reg = st.text_input("Buat Username Baru", key="u_reg_input")
+            p_reg = st.text_input("Buat Password Baru", type="password", key="p_reg_input")
             
             if st.button("Daftar Akun Baru", use_container_width=True):
                 if not u_reg or not p_reg:
@@ -99,29 +103,32 @@ def auth_system():
                         users_data = sheet_users.get_all_records()
                         df_users = pd.DataFrame(users_data)
                         
-                        if not df_users.empty and "Username" in df_users.columns and u_reg in df_users["Username"].values:
-                            st.error("❌ Username sudah terdaftar! Gunakan username lain.")
-                        else:
-                            sheet_users.append_row([u_reg, p_reg], value_input_option='USER_ENTERED')
-                            st.success("✅ Pendaftaran berhasil! Silakan pindah ke tab 'Masuk (Login)' untuk masuk.")
+                        if not df_users.empty and "Username" in df_users.columns:
+                            existing_users = df_users["Username"].astype(str).str.strip().values
+                            if u_reg.strip() in existing_users:
+                                st.error("❌ Username sudah terdaftar! Gunakan username lain.")
+                                return False
+                                
+                        sheet_users.append_row([u_reg.strip(), p_reg.strip()], value_input_option='USER_ENTERED')
+                        st.success("✅ Pendaftaran berhasil! Silakan pindah ke tab 'Masuk (Login)' di sebelah kiri untuk masuk.")
                     except Exception as e:
                         st.error(f"Gagal mendaftar: {e}")
 
         # 3. TAB LUPA / UBAH PASSWORD
         with tab_reset:
             st.subheader("Ubah Password Akun")
-            u_reset = st.text_input("Masukkan Username Anda", key="u_res")
-            p_reset = st.text_input("Masukkan Password Baru", type="password", key="p_res")
+            u_reset = st.text_input("Masukkan Username Anda", key="u_reset_input")
+            p_reset = st.text_input("Masukkan Password Baru", type="password", key="p_reset_input")
             
             if st.button("Perbarui Password", use_container_width=True):
                 if not u_reset or not p_reset:
                     st.warning("⚠️ Username dan Password baru tidak boleh kosong!")
                 else:
                     try:
-                        cell = sheet_users.find(u_reset)
+                        cell = sheet_users.find(u_reset.strip())
                         if cell:
                             row_idx = cell.row
-                            sheet_users.update_cell(row_idx, 2, p_reset)
+                            sheet_users.update_cell(row_idx, 2, p_reset.strip())
                             st.success("✅ Password berhasil diubah! Silakan login menggunakan password baru Anda.")
                         else:
                             st.error("❌ Username tidak ditemukan di database!")
