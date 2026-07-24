@@ -26,7 +26,6 @@ def get_sheets():
     spreadsheet = client.open("Database_DAF")
     sheet_data = spreadsheet.get_worksheet(0) # Sheet 1 untuk Lab DAF
     
-    # Ambil atau buat Sheet khusus 'Users' untuk database akun
     try:
         sheet_users = spreadsheet.worksheet("Users")
     except:
@@ -45,22 +44,24 @@ def auth_system():
     if not st.session_state["logged_in"]:
         st.title("🔐 Sistem Informasi Lab - DAF Extraction")
         
-        # Pilihan Tipe Login: Admin atau Anggota
+        # Pilihan Tipe Akses di awal
         role_login = st.radio("Pilih Masuk Sebagai:", ["👤 Anggota (Staff Lab)", "🛠️ Administrator (Admin)"])
         
-        menu_auth = st.selectbox("Pilih Menu Akses", ["🔑 Login", "📝 Daftar Akun Baru (Register)", "🔄 Lupa / Ubah Password"])
+        st.markdown("---")
+        
+        # Alur form: Username -> Password -> Menu Aksi di Bawah
+        u_input = st.text_input("Username")
+        p_input = st.text_input("Password", type="password")
+        
+        st.markdown("---")
+        menu_auth = st.selectbox("Pilih Menu Akses", ["🔑 Masuk (Login)", "📝 Daftar Akun Baru (Register)", "🔄 Lupa / Ubah Password"])
         
         # 1. MENU LOGIN
-        if menu_auth == "🔑 Login":
-            st.subheader(f"Silakan Masuk sebagai {role_login}")
-            u_input = st.text_input("Username", key="login_user")
-            p_input = st.text_input("Password", type="password", key="login_pass")
-            
-            if st.button("Masuk", use_container_width=True):
+        if menu_auth == "🔑 Masuk (Login)":
+            if st.button("Masuk Sekarang", use_container_width=True):
                 try:
                     if role_login == "🛠️ Administrator (Admin)":
-                        # Akun Master Admin Bawaan (Bisa diubah sesuka hati)
-                        if u_input == "zainul" and p_input == "sawit12345":
+                        if u_input == "admin" and p_input == "admin123":
                             st.session_state["logged_in"] = True
                             st.session_state["username"] = u_input
                             st.session_state["role"] = "Admin"
@@ -68,7 +69,6 @@ def auth_system():
                         else:
                             st.error("❌ Username atau Password Admin salah!")
                     else:
-                        # Login Anggota dari Database Google Sheets
                         users_data = sheet_users.get_all_records()
                         df_users = pd.DataFrame(users_data)
                         
@@ -82,57 +82,47 @@ def auth_system():
                             else:
                                 st.error("❌ Username atau Password Anggota salah!")
                         else:
-                            st.error("❌ Belum ada akun terdaftar. Silakan daftar terlebih dahulu.")
+                            st.error("❌ Belum ada akun terdaftar. Silakan daftar melalui menu di atas.")
                 except Exception as e:
                     st.error(f"Terjadi kesalahan saat login: {e}")
 
         # 2. MENU DAFTAR AKUN BARU (Khusus Anggota)
         elif menu_auth == "📝 Daftar Akun Baru (Register)":
-            st.subheader("Pendaftaran Akun Anggota / Analis Baru")
-            new_user = st.text_input("Buat Username Baru", key="reg_user")
-            new_pass = st.text_input("Buat Password Baru", type="password", key="reg_pass")
-            confirm_pass = st.text_input("Konfirmasi Password Baru", type="password", key="reg_pass_conf")
-            
-            if st.button("Daftar Sekarang", use_container_width=True):
-                if not new_user or not new_pass:
+            st.info("💡 Pastikan Anda mengisi Username & Password di atas, lalu klik tombol di bawah untuk mendaftarkan akun baru Anda.")
+            if st.button("Daftar Akun Baru", use_container_width=True):
+                if not u_input or not p_input:
                     st.warning("⚠️ Username dan Password tidak boleh kosong!")
-                elif new_pass != confirm_pass:
-                    st.error("❌ Password konfirmasi tidak cocok!")
                 else:
                     try:
                         users_data = sheet_users.get_all_records()
                         df_users = pd.DataFrame(users_data)
                         
-                        if not df_users.empty and "Username" in df_users.columns and new_user in df_users["Username"].values:
+                        if not df_users.empty and "Username" in df_users.columns and u_input in df_users["Username"].values:
                             st.error("❌ Username sudah terdaftar! Gunakan username lain.")
                         else:
-                            sheet_users.append_row([new_user, new_pass], value_input_option='USER_ENTERED')
-                            st.success("✅ Pendaftaran berhasil! Silakan pindah ke menu 'Login' untuk masuk sebagai Anggota.")
+                            sheet_users.append_row([u_input, p_input], value_input_option='USER_ENTERED')
+                            st.success("✅ Pendaftaran berhasil! Silakan ubah menu ke 'Masuk (Login)' untuk masuk.")
                     except Exception as e:
                         st.error(f"Gagal mendaftar: {e}")
 
         # 3. MENU LUPA / UBAH PASSWORD
         elif menu_auth == "🔄 Lupa / Ubah Password":
-            st.subheader("Ubah Password Akun Anggota")
-            reset_user = st.text_input("Masukkan Username Anda", key="reset_user")
-            old_pass = st.text_input("Masukkan Password Lama", type="password", key="reset_old")
-            new_pass_val = st.text_input("Masukkan Password Baru", type="password", key="reset_new")
-            
+            st.info("💡 Masukkan Username Anda di atas, masukkan password baru di kolom Password, lalu klik tombol di bawah.")
+            new_pass_val = st.text_input("Konfirmasi / Ketik Ulang Password Baru", type="password")
             if st.button("Perbarui Password", use_container_width=True):
-                try:
-                    cell = sheet_users.find(reset_user)
-                    if cell:
-                        row_idx = cell.row
-                        current_pass_in_sheet = sheet_users.cell(row_idx, 2).value
-                        if current_pass_in_sheet == old_pass:
+                if not u_input or not new_pass_val:
+                    st.warning("⚠️ Username dan Password baru tidak boleh kosong!")
+                else:
+                    try:
+                        cell = sheet_users.find(u_input)
+                        if cell:
+                            row_idx = cell.row
                             sheet_users.update_cell(row_idx, 2, new_pass_val)
-                            st.success("✅ Password berhasil diubah! Silakan login dengan password baru.")
+                            st.success("✅ Password berhasil diubah! Silakan ubah menu ke 'Masuk (Login)' untuk masuk.")
                         else:
-                            st.error("❌ Password lama salah!")
-                    else:
-                        st.error("❌ Username tidak ditemukan di database!")
-                except Exception as e:
-                    st.error(f"Gagal merubah password: {e}")
+                            st.error("❌ Username tidak ditemukan di database!")
+                    except Exception as e:
+                        st.error(f"Gagal merubah password: {e}")
                     
         return False
     else:
