@@ -20,9 +20,11 @@ with tab_data:
     st.info("**Keterangan:** **HS** = Hari Sebelumnya | **HI** = Hari Ini | Satuan **MT**")
 
     # ==========================================
-    # BAGIAN 1: TBS (Tandan Buah Segar)
+    # BAGIAN 1: TBS & LORY
     # ==========================================
     st.subheader("TBS and Lory")
+    
+    # 1. Input Data TBS
     col1, col2 = st.columns(2)
     with col1:
         tbs_restan_hs = st.number_input("TBS Restan HS (MT)", value=300000.0, step=1000.0)
@@ -30,8 +32,33 @@ with tab_data:
     with col2:
         tbs_restan_hi = st.number_input("TBS Restan HI (MT)", value=200000.0, step=1000.0)
     
+    # Kalkulasi TBS Olah
     tbs_olah = (tbs_restan_hs + tbs_masuk) - tbs_restan_hi
     st.success(f"**TBS Olah (otomatis):** {tbs_olah:,.0f} MT")
+    
+    st.markdown("---")
+    
+    # 2. Input Data Lori
+    st.markdown("**Data Posisi Lori**")
+    
+    # Kapasitas diatur default 10 Ton
+    kapasitas_lori = st.number_input("Kapasitas 1 Lori (MT)", value=10.0, step=0.5)
+    
+    col_l1, col_l2 = st.columns(2)
+    with col_l1:
+        lori_masak = st.number_input("Lori Masak (Unit)", value=0, step=1)
+        lori_mentah = st.number_input("Lori Mentah (Unit)", value=0, step=1)
+        lori_rebusan = st.number_input("Lori di Dalam Rebusan (Unit)", value=0, step=1)
+    with col_l2:
+        lori_veron = st.number_input("Lori di Veron (Unit)", value=0, step=1)
+        lori_lantai = st.number_input("Lori di Lantai (Unit)", value=0, step=1)
+        
+    # Kalkulasi Total Lori dan Tonase
+    total_lori = lori_masak + lori_mentah + lori_rebusan + lori_veron + lori_lantai
+    total_tonase_lori = total_lori * kapasitas_lori
+    
+    # Menampilkan Hasil Kalkulasi Lori
+    st.info(f"**Total Keseluruhan Lori:** {total_lori} Unit\n\n**Total Tonase Lori:** {total_tonase_lori:,.2f} MT")
     st.divider()
 
     # ==========================================
@@ -44,14 +71,8 @@ with tab_data:
     with col4:
         stop_olah = st.time_input("Stop Olah", datetime.time(17, 0))
         
-    dt_start = datetime.datetime.combine(datetime.date.today(), start_olah)
-    dt_stop = datetime.datetime.combine(datetime.date.today(), stop_olah)
-    
-    if dt_stop < dt_start:
-        dt_stop += datetime.timedelta(days=1)
-        
-    lama_olah_jam = (dt_stop - dt_start).total_seconds() / 3600
-    st.success(f"**Lama Olah (otomatis):** {lama_olah_jam:,.2f} Jam")
+    # Mengubah kotak hijau menjadi kotak input agar bisa diketik bebas
+    lama_olah_jam = st.number_input("Lama Olah (Jam)", value=9.0, step=0.5)
     st.divider()
 
     # ==========================================
