@@ -24,7 +24,7 @@ with tab_data:
     # ==========================================
     st.subheader("TBS and Lory")
     
-    # 1. Input Data TBS
+    # 1. Input Data TBS Umum
     col1, col2 = st.columns(2)
     with col1:
         tbs_restan_hs = st.number_input("TBS Restan HS (MT)", value=300000.0, step=1000.0)
@@ -32,33 +32,34 @@ with tab_data:
     with col2:
         tbs_restan_hi = st.number_input("TBS Restan HI (MT)", value=200000.0, step=1000.0)
     
-    # Kalkulasi TBS Olah
-    tbs_olah = (tbs_restan_hs + tbs_masuk) - tbs_restan_hi
-    st.success(f"**TBS Olah (otomatis):** {tbs_olah:,.0f} MT")
-    
     st.markdown("---")
     
     # 2. Input Data Lori
-    st.markdown("**Data Posisi Lori**")
+    st.markdown("**Data Lori & Perhitungan Olah**")
     
     # Kapasitas diatur default 10 Ton
     kapasitas_lori = st.number_input("Kapasitas 1 Lori (MT)", value=10.0, step=0.5)
     
     col_l1, col_l2 = st.columns(2)
     with col_l1:
+        # Lori Proses dimasukkan ke sini sebagai penentu utama TBS Olah
+        lori_proses = st.number_input("Lori Proses / Olah (Unit)", value=30000, step=1)
         lori_masak = st.number_input("Lori Masak (Unit)", value=0, step=1)
         lori_mentah = st.number_input("Lori Mentah (Unit)", value=0, step=1)
-        lori_rebusan = st.number_input("Lori di Dalam Rebusan (Unit)", value=0, step=1)
     with col_l2:
+        lori_rebusan = st.number_input("Lori di Dalam Rebusan (Unit)", value=0, step=1)
         lori_veron = st.number_input("Lori di Veron (Unit)", value=0, step=1)
         lori_lantai = st.number_input("Lori di Lantai (Unit)", value=0, step=1)
         
-    # Kalkulasi Total Lori dan Tonase
-    total_lori = lori_masak + lori_mentah + lori_rebusan + lori_veron + lori_lantai
-    total_tonase_lori = total_lori * kapasitas_lori
+    # Kalkulasi Total TBS Olah (Lori Proses x Kapasitas)
+    tbs_olah = lori_proses * kapasitas_lori
+    st.success(f"**TBS Olah (Lori Proses × Kapasitas):** {tbs_olah:,.0f} MT")
+
+    # Kalkulasi Sisa Lori di Lapangan (Selain yang di-proses)
+    total_lori_sisa = lori_masak + lori_mentah + lori_rebusan + lori_veron + lori_lantai
+    total_tonase_sisa = total_lori_sisa * kapasitas_lori
     
-    # Menampilkan Hasil Kalkulasi Lori
-    st.info(f"**Total Keseluruhan Lori:** {total_lori} Unit\n\n**Total Tonase Lori:** {total_tonase_lori:,.2f} MT")
+    st.info(f"**Total Lori Belum Diolah:** {total_lori_sisa} Unit ({total_tonase_sisa:,.2f} MT)")
     st.divider()
 
     # ==========================================
@@ -104,6 +105,7 @@ with tab_data:
     # ==========================================
     st.subheader("OER and KER")
     
+    # OER dan KER otomatis menggunakan hitungan TBS Olah dari lori di atas
     oer = (cpo_produksi / tbs_olah * 100) if tbs_olah > 0 else 0.0
     ker = (pk_produksi / tbs_olah * 100) if tbs_olah > 0 else 0.0
     
